@@ -81,30 +81,3 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
   (let [table (keyword schema (topic-table-name topic))]
     (pg/on-connection [conn conn]
       (honey/execute conn {:insert-into table :values records}))))
-
-(comment
-
-  (pg/with-connection [conn {:user "jgdavey" :database "test"}]
-    (pg/execute conn "drop schema ottla cascade"))
-
-  (let [config {:schema "ottla"}]
-    (pg/with-connection [conn {:user "jgdavey"
-                               :database "test"}]
-      (let [config (assoc config :conn conn)]
-        (ensure-schema config)
-        (delete-topic config "foo")
-        (create-topic config "foo"))))
-
-  (let [config {:schema "ottla"}]
-    (pg/with-connection [conn {:user "jgdavey"
-                               :database "test"
-                               :binary-encode? true}]
-      (let [config (assoc config :conn conn)]
-        (insert-records config "foo" [{:key (.getBytes "the-key" "UTF-8")
-                                       :value (.getBytes "" "UTF-8")}]))))
-
-  
-  (pg/with-connection [conn  {:user "jgdavey" :database "test"}]
-    (pg/query conn "select * from ottla.log__foo_eid_seq"))
-
-  :done)
