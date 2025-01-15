@@ -6,13 +6,15 @@
                        :main-opts   ["-m" "kaocha.runner"]
                        :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}}}
            :test {:extra-paths ["test"]
-                  :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}}}
+                  :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}
+                                aero/aero              {:mvn/version "1.1.6"}}}
            :dev  {:extra-paths   ["test" "dev"]
                   :jvm-opts      ["-XX:-OmitStackTraceInFastThrow"
                                   "-Djdk.attach.allowAttachSelf"]
-                  :override-deps {com.github.igrishaev/pg2-core  {:mvn/version "0.1.30-SNAPSHOT"}
-                                  com.github.igrishaev/pg2-honey {:mvn/version "0.1.30-SNAPSHOT"}}
+                  :override-deps {com.github.igrishaev/pg2-core    {:mvn/version "0.1.30-SNAPSHOT"}
+                                  com.github.igrishaev/pg2-honey   {:mvn/version "0.1.30-SNAPSHOT"}}
                   :extra-deps    {org.clojure/test.check           {:mvn/version "1.1.1"}
+                                  aero/aero                        {:mvn/version "1.1.6"}
                                   io.github.tonsky/clj-reload      {:mvn/version "0.7.1"}
                                   com.github.seancorfield/honeysql {:mvn/version "2.6.1243"}
                                   com.joshuadavey/crockery         {:mvn/version "0.3.0"}}}}}

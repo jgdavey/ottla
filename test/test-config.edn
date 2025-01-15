@@ -1,0 +1,4 @@
+{:pg {:user #or [#env PGUSER "ottla"]
+      :host #or [#env PGHOST "localhost"]
+      :port #long #or [#env PGPORT 5432]
+      :database #or [#env PGDATABASE "test"]}}

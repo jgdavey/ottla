@@ -1,10 +1,14 @@
 (ns ottla.test-helpers
-  (:require [ottla.postgresql :as postgres]
+  (:require [aero.core :as aero]
+            [clojure.java.io :as io]
+            [ottla.postgresql :as postgres]
             [pg.core :as pg]))
 
-(def ^:dynamic *conn-params*
-  {:database "test"
-   :user "jgdavey"})
+(def config
+  (aero/read-config
+   (io/resource "test-config.edn")))
+
+(def conn-params (:pg config))
 
 (def ^:dynamic *conn* nil)
 
@@ -21,15 +25,15 @@
 (defn config-fixture
   [f]
   (binding [*config* {:schema default-schema
-                      :conn-map *conn-params*}]
+                      :conn-map conn-params}]
     (f)))
 
 (defn connection-fixture
   [f]
-  (pg/with-connection [conn *conn-params*]
+  (pg/with-connection [conn conn-params]
     (binding [*conn* conn
               *config* (merge {:schema default-schema
-                               :conn-map *conn-params*}
+                               :conn-map conn-params}
                               *config*
                               {:conn conn})]
       (reset-schema! *config*)
