@@ -3,6 +3,7 @@
             [pg.core :as pg])
   (:import [org.pg Connection]
            [java.io Closeable]
+           [java.nio.channels ReadPendingException]
            [java.util.concurrent
             Executors
             ScheduledExecutorService
@@ -22,7 +23,8 @@
 (deftype Consumer [^ExecutorService poller
                    ^ExecutorService worker
                    ^ExecutorService listener
-                   ^Connection conn]
+                   ^Connection conn
+                   await-close-ms]
 
   IShutdown
   (shutdown [_ await-time-ms]
@@ -34,7 +36,9 @@
         (.shutdownNow worker))
       (catch InterruptedException _
         (.shutdownNow worker)
-        (.interrupt (Thread/currentThread)))))
+        (.interrupt (Thread/currentThread)))
+      (finally
+        (.close conn))))
   (status [_]
     (cond
       (.isTerminated worker) :terminated
@@ -43,8 +47,7 @@
 
   Closeable
   (close [this]
-    (shutdown this 0)
-    (.close conn))
+    (shutdown this await-close-ms))
 
   Object
   (toString [this]
@@ -56,21 +59,19 @@
 
 (defn- fetch-and-handle
   [{:keys [conn] :as config} selection handler]
-  (try
-    (pg/on-connection [conn conn]
-      (let [config (assoc config :conn conn)
-            records (postgres/fetch-records! config selection)]
-        (when (seq records)
-          (handler records))))
-    nil
-    (catch Exception e e)))
+  (pg/on-connection [conn conn]
+                    (let [config (assoc config :conn conn)
+                          records (postgres/fetch-records! config selection)]
+                      (when (seq records)
+                        (handler records)))))
 
 (defn start-consumer
   [{:keys [conn-map] :as config}
    {:keys [topic] :as basic-selection}
    handler
-   {:keys [poll-ms deserialize-key deserialize-value xform exception-handler]
+   {:keys [poll-ms deserialize-key deserialize-value xform exception-handler await-close-ms]
     :or {poll-ms 15000
+         await-close-ms 1000
          deserialize-key identity
          deserialize-value identity
          exception-handler default-exception-handler
@@ -90,12 +91,16 @@
                                                          (ThreadPoolExecutor$DiscardOldestPolicy.))
                                     (Executors/unconfigurableExecutorService))
         ^ExecutorService listener (Executors/newSingleThreadExecutor)
-        consumer (Consumer. poller worker listener conn)
+        consumer (Consumer. poller worker listener conn await-close-ms)
         do-work-fn (fn* [max] (.execute worker
                                         (fn* []
-                                             (when-let [error (fetch-and-handle config (assoc selection :max max) handler)]
-                                               (case (exception-handler error)
-                                                 :shutdown (.close consumer))))))
+                                             (try
+                                               (fetch-and-handle config (assoc selection :max max) handler)
+                                               (catch Exception ex
+                                                 (let [ex-result (exception-handler ex)]
+                                                   (case ex-result
+                                                     (:terminate :shutdown) (.close consumer))))))))
+
         _ (.scheduleAtFixedRate poller (fn* [] (do-work-fn nil)) 0 poll-ms TimeUnit/MILLISECONDS)
         _ (.submit listener ^Callable (fn* []
                                            (pg/with-connection [c (assoc conn-map
@@ -103,5 +108,7 @@
                                                                          (fn [{:keys [message]}]
                                                                            (do-work-fn (parse-long message))))]
                                              (pg/listen c topic)
-                                             (.loopNotifications c))))]
+                                             (try
+                                               (.loopNotifications c)
+                                               (catch ReadPendingException _ nil)))))]
     consumer))

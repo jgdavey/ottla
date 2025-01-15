@@ -2,7 +2,10 @@
  :deps    {org.clojure/clojure            {:mvn/version "1.12.0"}
            com.github.igrishaev/pg2-core  {:mvn/version "0.1.29"}
            com.github.igrishaev/pg2-honey {:mvn/version "0.1.29"}}
- :aliases {:test {:extra-paths ["test"]
+ :aliases {:run-tests {:extra-paths ["test"]
+                       :main-opts   ["-m" "kaocha.runner"]
+                       :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}}}
+           :test {:extra-paths ["test"]
                   :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}}}
            :dev  {:extra-paths   ["test" "dev"]
                   :jvm-opts      ["-XX:-OmitStackTraceInFastThrow"

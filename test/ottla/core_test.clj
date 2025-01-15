@@ -29,10 +29,11 @@
         _ (ottla/add-topic! *config* topic)
         p (promise)
         records (atom [])
+        ex (atom [])
         handler (fn [recs]
                   (swap! records into recs)
                   (deliver p :received))
-        ex-handler #(swap! records conj %)]
+        ex-handler #(swap! ex conj %)]
     (with-open [_consumer (ottla/start-consumer (dissoc *config* :conn)
                                                 {:topic topic}
                                                 handler
@@ -42,6 +43,7 @@
       (ottla/append *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn
                                                          :serialize-value serialize-edn})
       (is (= :received (deref p 100 :timed-out))))
+    (is (= [] (mapv Throwable->map @ex)))
     (is (= [{:meta {} :key 1 :value 42 :topic topic}]
            (mapv #(dissoc % :eid :timestamp) @records)))))
 
@@ -90,4 +92,4 @@
       (is (= :running (consumer/status consumer)))
       (is (not= :timed-out (deref ex 100 :timed-out)))
       (Thread/sleep 10)
-      (is (= :terminated (consumer/status consumer))))))
+      (is (not= :running (consumer/status consumer))))))
