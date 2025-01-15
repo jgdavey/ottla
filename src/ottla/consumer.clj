@@ -1,7 +1,6 @@
 (ns ottla.consumer
   (:require [ottla.postgresql :as postgres]
-            [pg.core :as pg]
-            [pg.pool :as pg-pool])
+            [pg.core :as pg])
   (:import [org.pg Connection]
            [java.io Closeable]
            [java.util.concurrent
@@ -42,8 +41,8 @@
 
   Closeable
   (close [this]
-    (.close conn)
-    (shutdown this 0))
+    (shutdown this 0)
+    (.close conn))
 
   Object
   (toString [this]
@@ -62,13 +61,20 @@
   [{:keys [conn-map] :as config}
    {:keys [topic] :as basic-selection}
    handler
-   {:keys [poll-ms]
-    :or {poll-ms 15000}
+   {:keys [poll-ms deserialize-key deserialize-value xform]
+    :or {poll-ms 15000
+         deserialize-key identity
+         deserialize-value identity
+         xform identity}
     :as opts}]
   (assert (map? conn-map) "conn-map must be a connection map")
   (assert (string? topic) "topic is required")
   (let [{:keys [conn] :as config} (postgres/connect-config config)
-        selection (postgres/normalize-selection basic-selection)
+        xf (comp (map (fn [rec] (-> rec
+                                    (update :key deserialize-key)
+                                    (update :value deserialize-value))))
+                 xform)
+        selection (assoc (postgres/normalize-selection basic-selection) :xf xf)
         ^ScheduledExecutorService poller (Executors/newSingleThreadScheduledExecutor)
         ^ExecutorService worker (-> (ThreadPoolExecutor. 1 1 0 TimeUnit/MILLISECONDS
                                                          (ArrayBlockingQueue. 1)

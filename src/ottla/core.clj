@@ -1,11 +1,12 @@
 (ns ottla.core
-  (:require [ottla.postgresql :as postgres]))
+  (:require [ottla.postgresql :as postgres]
+            [ottla.consumer :as consumer]))
 
 (defn make-config
-  [pg-connection & {:as opts}]
+  [conn-map & {:as opts}]
   (merge {:schema "ottla"}
          opts
-         {:conn pg-connection}))
+         {:conn-map conn-map}))
 
 (defn init
   [config]
@@ -20,5 +21,9 @@
   (postgres/delete-topic config topic))
 
 (defn append
-  [config topic records]
-  (postgres/insert-records config topic records))
+  [config topic records & {:as opts}]
+  (postgres/insert-records config topic records opts))
+
+(defn start-consumer
+  [config selection handler & {:as opts}]
+  (consumer/start-consumer config selection handler opts))

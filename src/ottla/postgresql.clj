@@ -116,11 +116,18 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
   (merge selection-defaults selection))
 
 (defn insert-records
-  [{:keys [conn schema]} topic records]
-  (let [table (keyword schema (topic-table-name topic))]
+  [{:keys [conn schema]} topic records & {:keys [serialize-key serialize-value]
+                                          :or {serialize-key identity
+                                               serialize-value identity}
+                                          :as opts}]
+  (let [table (keyword schema (topic-table-name topic))
+        conform (fn* [rec]
+                     (-> rec
+                         (assoc :key (some-> rec :key serialize-key ->bytes))
+                         (assoc :value (some-> rec :value serialize-value ->bytes))))]
     (pg/on-connection [conn conn]
-      (honey/execute conn {:insert-into table
-                           :values (mapv conform-record records)}))))
+                      (honey/execute conn {:insert-into table
+                                           :values (into [] (map conform) records)}))))
 
 (defn ensure-subscription
   [{:keys [conn schema]} {:keys [topic group]}]
@@ -130,14 +137,16 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                        :do-nothing true}))
 
 (defn- fetch-records
-  [{:keys [conn schema]} {:keys [topic min max limit]}]
-  (let [table (keyword schema (topic-table-name topic))]
+  [{:keys [conn schema]} {:keys [topic min max limit xf]}]
+  (let [xf (or xf identity)
+        table (keyword schema (topic-table-name topic))]
     (honey/execute conn (cond-> {:select [:* [topic :topic]]
                                  :from [[table :t]]
                                  :where (cond-> [:and [:> :eid min]]
                                           max (conj [:<= :eid max]))
                                  :order-by [[:eid :asc]]}
-                          limit (assoc :limit limit)))))
+                          limit (assoc :limit limit))
+                   {:into [xf []]})))
 
 (defn commit-cursor!
   [{:keys [conn schema]} {:keys [topic group]} cursor]
