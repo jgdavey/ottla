@@ -11,6 +11,5 @@
                                   com.github.igrishaev/pg2-honey {:mvn/version "0.1.30-SNAPSHOT"}}
                   :extra-deps    {org.clojure/test.check           {:mvn/version "1.1.1"}
                                   io.github.tonsky/clj-reload      {:mvn/version "0.7.1"}
-                                  migratus/migratus                {:mvn/version "1.6.3"}
                                   com.github.seancorfield/honeysql {:mvn/version "2.6.1243"}
                                   com.joshuadavey/crockery         {:mvn/version "0.3.0"}}}}}
