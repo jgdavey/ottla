@@ -18,7 +18,7 @@
       (is (= {:inserted 1}
              (postgres/insert-records *config* topic [{:key (.getBytes "hi" "UTF-8")
                                                        :value (.getBytes "bye" "UTF-8")}])))
-      (Thread/sleep 10)
+      (Thread/sleep 20)
       (pg/poll-notifications conn2)
       (is (= [{:message "1"
                :channel topic

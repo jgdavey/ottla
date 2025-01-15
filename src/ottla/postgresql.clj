@@ -3,6 +3,11 @@
             [pg.honey :as honey]
             [honey.sql]))
 
+(defn connect-config
+  [config]
+  (assert (nil? (:conn config)) "config is already connected")
+  (assoc config :conn (pg/connect (:conn-map config))))
+
 (defn sql-entity
   [x]
   (first (honey.sql/format (keyword x))))
@@ -37,9 +42,12 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
   [topic]
   (str "log__" topic))
 
+(def default-subscription-group "default")
+
 (defn ensure-schema
   [{:keys [conn schema]}]
-  (pg/on-connection [conn conn]
+  (pg/on-connection
+   [conn conn]
    (pg/with-tx [conn]
      (pg/execute conn (str "create schema if not exists \"" schema "\""))
      (pg/query conn (format trigger-function-template (trigger-function-name schema)))
@@ -47,12 +55,21 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                     {:create-table [(keyword schema "topics") :if-not-exists]
                      :with-columns [[:tid :int :primary-key :generated :always :as :identity]
                                     [:topic :text [:not nil] :unique]
-                                    [:table_name :text [:not nil] :unique]]}))))
+                                    [:table_name :text [:not nil] :unique]]})
+     (honey/execute conn
+                    {:create-table [(keyword schema "subs") :if-not-exists]
+                     :with-columns [[:sid :int :primary-key :generated :always :as :identity]
+                                    [:topic :text [:not nil] [:references (keyword schema "topics") :topic]]
+                                    [:group_id :text [:not nil] [:default [:inline default-subscription-group]]]
+                                    [:cursor :bigint [:not nil] [:default [:inline 0]]]
+                                    [[:unique] [:composite :topic :group_id]]]}))))
 
 (defn delete-topic
   [{:keys [conn schema]} topic]
   (pg/on-connection [conn conn]
     (pg/with-tx [conn]
+      (honey/execute conn {:delete-from (keyword schema "subs")
+                           :where [:= :topic topic]})
       (honey/execute conn {:delete-from (keyword schema "topics")
                            :where [:= :topic topic]})
       (honey/execute conn {:drop-table [:if-exists (keyword schema (topic-table-name topic))]}))))
@@ -76,8 +93,92 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                                             [:value :bytea]]})
         (pg/query conn (format trigger-template trigger-name table-name trigger-fn-name topic))))))
 
+(defn ->bytes
+  [x]
+  (cond
+    (nil? x) x
+    (bytes? x) x
+    (string? x) (.getBytes x "UTF-8")))
+
+(defn conform-record
+  [rec]
+  (if (map? rec)
+    (-> rec
+        (update :key ->bytes)
+        (update :value ->bytes))
+    rec))
+
+(def selection-defaults {:group "default"
+                         :auto-commit? true})
+
+(defn normalize-selection
+  [selection]
+  (merge selection-defaults selection))
+
 (defn insert-records
   [{:keys [conn schema]} topic records]
   (let [table (keyword schema (topic-table-name topic))]
     (pg/on-connection [conn conn]
-      (honey/execute conn {:insert-into table :values records}))))
+      (honey/execute conn {:insert-into table
+                           :values (mapv conform-record records)}))))
+
+(defn ensure-subscription
+  [{:keys [conn schema]} {:keys [topic group]}]
+  (honey/execute conn {:insert-into [(keyword schema "subs")]
+                       :values [{:topic topic :group_id group}]
+                       :on-conflict [:topic :group_id]
+                       :do-nothing true}))
+
+(defn- fetch-records
+  [{:keys [conn schema]} {:keys [topic min max limit]}]
+  (let [table (keyword schema (topic-table-name topic))]
+    (honey/execute conn (cond-> {:select [:* [topic :topic]]
+                                 :from [[table :t]]
+                                 :where (cond-> [:and [:> :eid min]]
+                                          max (conj [:<= :eid max]))
+                                 :order-by [[:eid :asc]]}
+                          limit (assoc :limit limit)))))
+
+(defn commit-cursor!
+  [{:keys [conn schema]} {:keys [topic group]} cursor]
+  (honey/execute conn {:update [(keyword schema "subs")]
+                       :set {:cursor cursor}
+                       :where [:and [:= :topic topic]
+                               [:= :group_id group]
+                               [:< :cursor cursor]]}))
+
+(defn fetch-records!
+  [{:keys [conn schema] :as config} {:keys [topic group auto-commit?] :as selection}]
+  (pg/on-connection
+   [conn conn]
+   (pg/with-tx [conn]
+     (ensure-subscription config selection)
+     (let [{:keys [cursor]} (first
+                             (honey/execute conn {:select [:*]
+                                                  :from [(keyword schema "subs")]
+                                                  :where [:and [:= :topic topic]
+                                                          [:= :group_id group]]
+                                                  :limit 1
+                                                  :for :update}))
+           records (fetch-records config (assoc selection :min cursor))
+           final (peek records)]
+       (when (and final auto-commit?)
+         (commit-cursor! config selection (:eid final)))
+       records))))
+
+(comment
+  (def conn (pg/connect {:user  "jgdavey" :database "test"}))
+
+  (def config {:conn conn :schema "ottla"})
+
+  (ensure-schema config)
+
+  (create-topic config "foo")
+
+  (insert-records config "foo" [{:key "x" :value "x"}])
+
+  (fetch-records!
+   config
+   (normalize-selection
+    {:topic "foo"
+     :limit 1})))
