@@ -99,7 +99,7 @@
                                                (catch Exception ex
                                                  (let [ex-result (exception-handler ex)]
                                                    (case ex-result
-                                                     (:terminate :shutdown) (.close consumer))))))))
+                                                     :ottla/shutdown (.close consumer))))))))
 
         _ (.scheduleAtFixedRate poller (fn* [] (do-work-fn nil)) 0 poll-ms TimeUnit/MILLISECONDS)
         _ (.submit listener ^Callable (fn* []

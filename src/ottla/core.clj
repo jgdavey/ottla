@@ -8,6 +8,8 @@
          opts
          {:conn-map conn-map}))
 
+(def shutdown :ottla/shutdown)
+
 (defn init
   [config]
   (postgres/ensure-schema config))

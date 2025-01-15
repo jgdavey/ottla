@@ -83,7 +83,7 @@
                   (throw (ex-info "Yikes" {})))
         ex-handler (fn [e]
                      (deliver ex e)
-                     :shutdown)]
+                     ottla/shutdown)]
     (with-open [consumer (ottla/start-consumer (dissoc *config* :conn)
                                                {:topic topic}
                                                handler
