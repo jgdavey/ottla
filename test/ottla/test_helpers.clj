@@ -13,14 +13,24 @@
 (def default-schema "ottla")
 
 (defn reset-schema!
-  [{:keys [conn schema] :as config}]
-  (pg/execute conn (str "drop schema if exists \"" schema "\" cascade"))
-  (postgres/ensure-schema config))
+  [{:keys [conn conn-map schema] :as config}]
+  (pg/on-connection [conn (or conn conn-map)]
+    (pg/execute conn (str "drop schema if exists \"" schema "\" cascade"))
+    (postgres/ensure-schema config)))
 
 (defn config-fixture
   [f]
+  (binding [*config* {:schema default-schema
+                      :conn-map *conn-params*}]
+    (f)))
+
+(defn connection-fixture
+  [f]
   (pg/with-connection [conn *conn-params*]
     (binding [*conn* conn
-              *config* {:schema default-schema :conn conn}]
+              *config* (merge {:schema default-schema
+                               :conn-map *conn-params*}
+                              *config*
+                              {:conn conn})]
       (reset-schema! *config*)
       (f))))

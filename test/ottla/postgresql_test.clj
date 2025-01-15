@@ -5,7 +5,8 @@
             [pg.core :as pg]))
 
 (test/use-fixtures :each
-  th/config-fixture)
+  th/config-fixture
+  th/connection-fixture)
 
 (deftest topics-notify
   (let [topic "my-topic"

@@ -12,6 +12,8 @@
             TimeUnit
             ArrayBlockingQueue]))
 
+(set! *warn-on-reflection* true)
+
 (defprotocol IShutdown
   (shutdown [_ await-time-ms])
   (status [_]))
@@ -19,14 +21,14 @@
 
 (deftype Consumer [^ExecutorService poller
                    ^ExecutorService worker
-                   ^Thread listener
+                   ^ExecutorService listener
                    ^Connection conn]
 
   IShutdown
   (shutdown [_ await-time-ms]
     (.shutdownNow poller)
+    (.shutdownNow listener)
     (.shutdown worker)
-    (.interrupt listener)
     (try
       (when-not (.awaitTermination worker await-time-ms TimeUnit/MILLISECONDS)
         (.shutdownNow worker))
@@ -48,23 +50,30 @@
   (toString [this]
     (format "Consumer[%s]" (str (status this)))))
 
-(defn fetch-and-handle
+(defn default-exception-handler
+  [^Exception e]
+  (prn e))
+
+(defn- fetch-and-handle
   [{:keys [conn] :as config} selection handler]
-  #_(println "DEBUG fetch-and-handle" selection)
-  (pg/on-connection [conn conn]
-    (let [config (assoc config :conn conn)
-          records (postgres/fetch-records! config selection)]
-      (when (seq records)
-        (handler records)))))
+  (try
+    (pg/on-connection [conn conn]
+      (let [config (assoc config :conn conn)
+            records (postgres/fetch-records! config selection)]
+        (when (seq records)
+          (handler records))))
+    nil
+    (catch Exception e e)))
 
 (defn start-consumer
   [{:keys [conn-map] :as config}
    {:keys [topic] :as basic-selection}
    handler
-   {:keys [poll-ms deserialize-key deserialize-value xform]
+   {:keys [poll-ms deserialize-key deserialize-value xform exception-handler]
     :or {poll-ms 15000
          deserialize-key identity
          deserialize-value identity
+         exception-handler default-exception-handler
          xform identity}
     :as opts}]
   (assert (map? conn-map) "conn-map must be a connection map")
@@ -80,18 +89,19 @@
                                                          (ArrayBlockingQueue. 1)
                                                          (ThreadPoolExecutor$DiscardOldestPolicy.))
                                     (Executors/unconfigurableExecutorService))
+        ^ExecutorService listener (Executors/newSingleThreadExecutor)
+        consumer (Consumer. poller worker listener conn)
         do-work-fn (fn* [max] (.execute worker
                                         (fn* []
-                                             (fetch-and-handle config (assoc selection :max max) handler))))
+                                             (when-let [error (fetch-and-handle config (assoc selection :max max) handler)]
+                                               (case (exception-handler error)
+                                                 :shutdown (.close consumer))))))
         _ (.scheduleAtFixedRate poller (fn* [] (do-work-fn nil)) 0 poll-ms TimeUnit/MILLISECONDS)
-        ^Thread listen-thread (doto (Thread.
-                                     (fn* []
-                                          (pg/with-connection [c (assoc conn-map
-                                                                        :fn-notification
-                                                                        (fn [{:keys [message]}]
-                                                                          (do-work-fn (parse-long message))))]
-                                            (pg/listen c topic)
-                                            (.loopNotifications c))))
-                                (.setDaemon true)
-                                (.start))]
-    (Consumer. poller worker listen-thread conn)))
+        _ (.submit listener ^Callable (fn* []
+                                           (pg/with-connection [c (assoc conn-map
+                                                                         :fn-notification
+                                                                         (fn [{:keys [message]}]
+                                                                           (do-work-fn (parse-long message))))]
+                                             (pg/listen c topic)
+                                             (.loopNotifications c))))]
+    consumer))
