@@ -95,10 +95,9 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
 
 (defn ->bytes
   [x]
-  (cond
-    (nil? x) x
-    (bytes? x) x
-    (string? x) (.getBytes x "UTF-8")))
+  (if (string? x)
+    (.getBytes x "UTF-8")
+    x))
 
 (defn conform-record
   [rec]
@@ -124,10 +123,16 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
         conform (fn* [rec]
                      (-> rec
                          (assoc :key (some-> rec :key serialize-key ->bytes))
-                         (assoc :value (some-> rec :value serialize-value ->bytes))))]
-    (pg/on-connection [conn conn]
-                      (honey/execute conn {:insert-into table
-                                           :values (into [] (map conform) records)}))))
+                         (assoc :value (some-> rec :value serialize-value ->bytes))))
+        conformed (into [] (map conform) records)]
+    (pg/on-connection
+     [conn conn]
+     (pg/execute conn
+                 (str "insert into " (sql-entity table) "(meta, key, value) "
+                      "select * from unnest($1::jsonb[], $2::bytea[], $3::bytea[])")
+                 {:params [(mapv :meta conformed)
+                           (mapv :key conformed)
+                           (mapv :value conformed)]}))))
 
 (defn ensure-subscription
   [{:keys [conn schema]} {:keys [topic group]}]
