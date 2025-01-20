@@ -16,9 +16,9 @@
 (set! *warn-on-reflection* true)
 
 (defprotocol IShutdown
-  (shutdown [_ await-time-ms])
+  (shutdown [_])
+  (shutdown-await [_ await-time-ms])
   (status [_]))
-
 
 (deftype Consumer [^ExecutorService poller
                    ^ExecutorService worker
@@ -27,18 +27,26 @@
                    await-close-ms]
 
   IShutdown
-  (shutdown [_ await-time-ms]
+  (shutdown [_]
+    (.shutdown poller)
+    (.shutdown listener)
+    (.shutdown worker)
+    (when-not (.isClosed conn)
+      (.close conn)))
+
+  (shutdown-await [_ await-time-ms]
     (.shutdownNow poller)
     (.shutdownNow listener)
     (.shutdown worker)
     (try
       (when-not (.awaitTermination worker await-time-ms TimeUnit/MILLISECONDS)
         (.shutdownNow worker))
+      (when-not (.isClosed conn)
+        (.close conn))
       (catch InterruptedException _
         (.shutdownNow worker)
-        (.interrupt (Thread/currentThread)))
-      (finally
-        (.close conn))))
+        (.close conn)
+        (.interrupt (Thread/currentThread)))))
   (status [_]
     (cond
       (.isTerminated worker) :terminated
@@ -47,7 +55,7 @@
 
   Closeable
   (close [this]
-    (shutdown this await-close-ms))
+    (shutdown-await this await-close-ms))
 
   Object
   (toString [this]
@@ -99,7 +107,7 @@
                                                (catch Exception ex
                                                  (let [ex-result (exception-handler ex)]
                                                    (case ex-result
-                                                     :ottla/shutdown (.close consumer))))))))
+                                                     :ottla/shutdown (shutdown consumer))))))))
 
         _ (.scheduleAtFixedRate poller (fn* [] (do-work-fn nil)) 0 poll-ms TimeUnit/MILLISECONDS)
         _ (.submit listener ^Callable (fn* []
@@ -108,7 +116,10 @@
                                                                          (fn [{:keys [message]}]
                                                                            (do-work-fn (parse-long message))))]
                                              (pg/listen c topic)
-                                             (try
-                                               (.loopNotifications c)
-                                               (catch ReadPendingException _ nil)))))]
+                                             (loop []
+                                               (let [continue? (try
+                                                                 (.blockingRead ^Connection c)
+                                                                 true
+                                                                 (catch Exception _ false))]
+                                                 (when continue? (recur)))))))]
     consumer))

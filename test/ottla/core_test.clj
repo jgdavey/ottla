@@ -44,9 +44,8 @@
                                                          :serialize-value serialize-edn})
       (is (= :received (deref p 100 :timed-out))))
     (is (= [] (mapv Throwable->map @ex)))
-    (is (= [{:meta {} :key 1 :value 42 :topic topic}]
+    (is (= [{:meta nil :key 1 :value 42 :topic topic}]
            (mapv #(dissoc % :eid :timestamp) @records)))))
-
 
 (deftest test-consumer-ex-continue
   (let [topic "theproblem"
@@ -65,13 +64,16 @@
                                                handler
                                                {:deserialize-key deserialize-edn
                                                 :exception-handler ex-handler})]
-      (ottla/append *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn})
+      (ottla/append *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn
+                                                         :serialize-value serialize-edn})
       (is (not= :timed-out (deref r1 100 :timed-out)))
       (is (= :running (consumer/status consumer)))
-      (ottla/append *config* topic [{:key 2 :value 42}] {:serialize-key serialize-edn})
+      (ottla/append *config* topic [{:key 2 :value 42}] {:serialize-key serialize-edn
+                                                         :serialize-value serialize-edn})
       (is (not= :timed-out (deref ex 100 :timed-out)))
       (is (= :running (consumer/status consumer)))
-      (ottla/append *config* topic [{:key 3 :value 42}] {:serialize-key serialize-edn})
+      (ottla/append *config* topic [{:key 3 :value 42}] {:serialize-key serialize-edn
+                                                         :serialize-value serialize-edn})
       (is (not= :timed-out (deref r3 100 :timed-out)))
       (is (= :running (consumer/status consumer))))))
 
@@ -88,7 +90,8 @@
                                                {:topic topic}
                                                handler
                                                {:exception-handler ex-handler})]
-      (ottla/append *config* topic [{:key 1 :value 42}] {})
+      (ottla/append *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn
+                                                         :serialize-value serialize-edn})
       (is (= :running (consumer/status consumer)))
       (is (not= :timed-out (deref ex 100 :timed-out)))
       (Thread/sleep 10)

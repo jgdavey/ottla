@@ -87,7 +87,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                              :values [[topic (topic-table-name topic)]]})
         (honey/execute conn {:create-table (keyword schema (topic-table-name topic))
                              :with-columns [[:eid :bigint :primary-key :generated :always :as :identity]
-                                            [:meta :jsonb [:not nil] [:default [:inline "{}"]]]
+                                            [:meta :jsonb]
                                             [:timestamp :timestamptz [:not nil] [:default [:now]]]
                                             [:key :bytea]
                                             [:value :bytea]]})

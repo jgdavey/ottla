@@ -1,7 +1,7 @@
 {:paths   ["src" "resources"]
  :deps    {org.clojure/clojure            {:mvn/version "1.12.0"}
-           com.github.igrishaev/pg2-core  {:mvn/version "0.1.29"}
-           com.github.igrishaev/pg2-honey {:mvn/version "0.1.29"}}
+           com.github.igrishaev/pg2-core  {:mvn/version "0.1.30"}
+           com.github.igrishaev/pg2-honey {:mvn/version "0.1.30"}}
  :aliases {:run-tests {:extra-paths ["test"]
                        :main-opts   ["-m" "kaocha.runner"]
                        :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}}}
@@ -13,10 +13,10 @@
            :dev  {:extra-paths   ["test" "dev"]
                   :jvm-opts      ["-XX:-OmitStackTraceInFastThrow"
                                   "-Djdk.attach.allowAttachSelf"]
-                  :override-deps {com.github.igrishaev/pg2-core    {:mvn/version "0.1.30-SNAPSHOT"}
-                                  com.github.igrishaev/pg2-honey   {:mvn/version "0.1.30-SNAPSHOT"}}
+                  :override-deps {com.github.igrishaev/pg2-core    {:mvn/version "0.1.31-SNAPSHOT"}
+                                  com.github.igrishaev/pg2-honey   {:mvn/version "0.1.31-SNAPSHOT"}}
                   :extra-deps    {org.clojure/test.check           {:mvn/version "1.1.1"}
                                   aero/aero                        {:mvn/version "1.1.6"}
                                   io.github.tonsky/clj-reload      {:mvn/version "0.7.1"}
-                                  com.github.seancorfield/honeysql {:mvn/version "2.6.1243"}
+                                  com.github.seancorfield/honeysql {:mvn/version "2.6.1270"}
                                   com.joshuadavey/crockery         {:mvn/version "0.3.0"}}}}}

@@ -11,7 +11,7 @@
 (deftest topics-notify
   (let [topic "my-topic"
         messages (atom [])]
-    (pg/with-connection [conn2 (assoc th/*conn-params*
+    (pg/with-connection [conn2 (assoc th/conn-params
                                       :fn-notification (fn [message]
                                                          (swap! messages conj message)))]
       (pg/listen conn2 topic)
