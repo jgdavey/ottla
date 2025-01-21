@@ -30,7 +30,7 @@
         p (promise)
         records (atom [])
         ex (atom [])
-        handler (fn [recs]
+        handler (fn [_ recs]
                   (swap! records into recs)
                   (deliver p :received))
         ex-handler #(swap! ex conj %)]
@@ -53,7 +53,7 @@
         r1 (promise)
         ex (promise)
         r3 (promise)
-        handler (fn [[{:keys [key]}]]
+        handler (fn [_ [{:keys [key]}]]
                   (case key
                     1 (deliver r1 :yes)
                     2 (throw (ex-info "Yikes" {}))
@@ -81,7 +81,7 @@
   (let [topic "theproblem"
         _ (ottla/add-topic! *config* topic)
         ex (promise)
-        handler (fn [_]
+        handler (fn [_ _]
                   (throw (ex-info "Yikes" {})))
         ex-handler (fn [e]
                      (deliver ex e)

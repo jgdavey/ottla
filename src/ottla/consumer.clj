@@ -65,34 +65,50 @@
   [^Exception e]
   (prn e))
 
+(def handler-commit-modes #{:manual :auto :wrap})
+
+(defmacro with-commit-mode [[conn commit-mode] & body]
+  `(if (= :wrap ~commit-mode)
+     (pg/with-tx [~conn]
+       ~@body)
+     (do ~@body)))
+
 (defn- fetch-and-handle
-  [{:keys [conn] :as config} selection handler]
-  (pg/on-connection [conn conn]
-                    (let [config (assoc config :conn conn)
-                          records (postgres/fetch-records! config selection)]
-                      (when (seq records)
-                        (handler records)))))
+  [{:keys [conn handler-commit-mode] :as config} selection handler]
+  (pg/on-connection
+   [conn conn]
+   (with-commit-mode [conn handler-commit-mode]
+     (let [config (assoc config :conn conn)
+           records (postgres/fetch-records! config selection)]
+       (when (seq records)
+         (handler config records))))))
 
 (defn start-consumer
   [{:keys [conn-map] :as config}
    {:keys [topic] :as basic-selection}
    handler
-   {:keys [poll-ms deserialize-key deserialize-value xform exception-handler await-close-ms]
+   {:keys [poll-ms deserialize-key deserialize-value xform
+           exception-handler await-close-ms handler-commit-mode]
     :or {poll-ms 15000
          await-close-ms 1000
          deserialize-key identity
          deserialize-value identity
          exception-handler default-exception-handler
-         xform identity}
+         xform identity
+         handler-commit-mode :auto}
     :as opts}]
+  (assert (contains? handler-commit-modes handler-commit-mode) "unknown handler-commit-mode")
   (assert (map? conn-map) "conn-map must be a connection map")
   (assert (string? topic) "topic is required")
-  (let [{:keys [conn] :as config} (postgres/connect-config config)
+  (let [{:keys [conn] :as config} (assoc (postgres/connect-config config)
+                                         :handler-commit-mode handler-commit-mode)
         xf (comp (map (fn [rec] (-> rec
                                     (update :key deserialize-key)
                                     (update :value deserialize-value))))
                  xform)
-        selection (assoc (postgres/normalize-selection basic-selection) :xf xf)
+        selection (assoc (postgres/normalize-selection basic-selection)
+                         :xf xf
+                         :auto-commit? (contains? {:auto :wrap} handler-commit-mode))
         ^ScheduledExecutorService poller (Executors/newSingleThreadScheduledExecutor)
         ^ExecutorService worker (-> (ThreadPoolExecutor. 1 1 0 TimeUnit/MILLISECONDS
                                                          (ArrayBlockingQueue. 1)
