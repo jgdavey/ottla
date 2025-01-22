@@ -109,10 +109,13 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
   (merge selection-defaults selection))
 
 (defn insert-records
-  [{:keys [conn schema]} topic records & {:keys [serialize-key serialize-value]
-                                          :or {serialize-key identity
-                                               serialize-value identity}
-                                          :as opts}]
+  [{:keys [conn conn-map schema]}
+   topic
+   records
+   & {:keys [serialize-key serialize-value]
+      :or {serialize-key identity
+           serialize-value identity}
+      :as opts}]
   (let [table (keyword schema (topic-table-name topic))
         conform (fn* [rec]
                      (-> rec
@@ -120,7 +123,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                          (assoc :value (some-> rec :value serialize-value ->bytes))))
         conformed (into [] (map conform) records)]
     (pg/on-connection
-     [conn conn]
+     [conn (or conn conn-map)]
      (pg/execute conn
                  (str "insert into " (sql-entity table) "(meta, key, value) "
                       "select * from unnest($1::jsonb[], $2::bytea[], $3::bytea[])")
