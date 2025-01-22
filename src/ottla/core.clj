@@ -10,6 +10,19 @@
 
 (def shutdown :ottla/shutdown)
 
+(defmacro with-connected-config
+  [[sym config] & body]
+  `(let* [config# ~config]
+     (if (:conn config#)
+       (let* [~sym config#]
+         ~@body)
+       (let* [config# (postgres/connect-config config#)
+              ~sym config#]
+         (try
+           ~@body
+           (finally
+             (.close (:conn config#))))))))
+
 (defn init
   [config]
   (postgres/ensure-schema config))
@@ -22,10 +35,10 @@
   [config topic]
   (postgres/delete-topic config topic))
 
-(defn append
-  [config topic records & {:as opts}]
-  (postgres/insert-records config topic records opts))
-
 (defn start-consumer
   [config selection handler & {:as opts}]
   (consumer/start-consumer config selection handler opts))
+
+(defn append
+  [config topic records & {:as opts}]
+  (postgres/insert-records config topic records opts))
