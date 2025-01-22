@@ -99,16 +99,10 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
     (.getBytes x "UTF-8")
     x))
 
-(defn conform-record
-  [rec]
-  (if (map? rec)
-    (-> rec
-        (update :key ->bytes)
-        (update :value ->bytes))
-    rec))
+(def commit-modes #{:manual :auto :tx-wrap})
 
 (def selection-defaults {:group "default"
-                         :auto-commit? true})
+                         :commit-mode :auto})
 
 (defn normalize-selection
   [selection]
@@ -162,7 +156,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                                [:< :cursor cursor]]}))
 
 (defn fetch-records!
-  [{:keys [conn schema] :as config} {:keys [topic group auto-commit?] :as selection}]
+  [{:keys [conn schema] :as config} {:keys [topic group commit-mode] :as selection}]
   (pg/on-connection
    [conn conn]
    (pg/with-tx [conn]
@@ -176,23 +170,6 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                                                   :for :update}))
            records (fetch-records config (assoc selection :min cursor))
            final (peek records)]
-       (when (and final auto-commit?)
+       (when (and final (contains? #{:auto :tx-wrap} commit-mode))
          (commit-cursor! config selection (:eid final)))
        records))))
-
-(comment
-  (def conn (pg/connect {:user  "jgdavey" :database "test"}))
-
-  (def config {:conn conn :schema "ottla"})
-
-  (ensure-schema config)
-
-  (create-topic config "foo")
-
-  (insert-records config "foo" [{:key "x" :value "x"}])
-
-  (fetch-records!
-   config
-   (normalize-selection
-    {:topic "foo"
-     :limit 1})))

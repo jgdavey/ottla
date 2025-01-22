@@ -16,7 +16,7 @@
 (set! *warn-on-reflection* true)
 
 (defprotocol IShutdown
-  (shutdown [_])
+  (graceful-shutdown [_])
   (shutdown-await [_ await-time-ms])
   (status [_]))
 
@@ -27,17 +27,13 @@
                    await-close-ms]
 
   IShutdown
-  (shutdown [_]
+  (graceful-shutdown [_]
     (.shutdown poller)
     (.shutdown listener)
-    (.shutdown worker)
-    (when-not (.isClosed conn)
-      (.close conn)))
+    (.shutdown worker))
 
-  (shutdown-await [_ await-time-ms]
-    (.shutdownNow poller)
-    (.shutdownNow listener)
-    (.shutdown worker)
+  (shutdown-await [this await-time-ms]
+    (graceful-shutdown this)
     (try
       (when-not (.awaitTermination worker await-time-ms TimeUnit/MILLISECONDS)
         (.shutdownNow worker))
@@ -63,21 +59,19 @@
 
 (defn default-exception-handler
   [^Exception e]
-  (prn e))
-
-(def handler-commit-modes #{:manual :auto :wrap})
+  (println "Uncaught exception in consumer handler:" e))
 
 (defmacro with-commit-mode [[conn commit-mode] & body]
-  `(if (= :wrap ~commit-mode)
+  `(if (= :tx-wrap ~commit-mode)
      (pg/with-tx [~conn]
        ~@body)
      (do ~@body)))
 
 (defn- fetch-and-handle
-  [{:keys [conn handler-commit-mode] :as config} selection handler]
+  [{:keys [conn] :as config} {:keys [commit-mode] :as selection} handler]
   (pg/on-connection
    [conn conn]
-   (with-commit-mode [conn handler-commit-mode]
+   (with-commit-mode [conn commit-mode]
      (let [config (assoc config :conn conn)
            records (postgres/fetch-records! config selection)]
        (when (seq records)
@@ -88,27 +82,24 @@
    {:keys [topic] :as basic-selection}
    handler
    {:keys [poll-ms deserialize-key deserialize-value xform
-           exception-handler await-close-ms handler-commit-mode]
+           exception-handler await-close-ms]
     :or {poll-ms 15000
          await-close-ms 1000
          deserialize-key identity
          deserialize-value identity
          exception-handler default-exception-handler
-         xform identity
-         handler-commit-mode :auto}
+         xform identity}
     :as opts}]
-  (assert (contains? handler-commit-modes handler-commit-mode) "unknown handler-commit-mode")
   (assert (map? conn-map) "conn-map must be a connection map")
   (assert (string? topic) "topic is required")
-  (let [{:keys [conn] :as config} (assoc (postgres/connect-config config)
-                                         :handler-commit-mode handler-commit-mode)
+  (let [{:keys [conn] :as config} (postgres/connect-config config)
         xf (comp (map (fn [rec] (-> rec
                                     (update :key deserialize-key)
                                     (update :value deserialize-value))))
                  xform)
-        selection (assoc (postgres/normalize-selection basic-selection)
-                         :xf xf
-                         :auto-commit? (contains? {:auto :wrap} handler-commit-mode))
+        selection (assoc (postgres/normalize-selection basic-selection) :xf xf)
+        _ (assert (contains? postgres/commit-modes
+                             (:commit-mode selection)) "unknown commit-mode")
         ^ScheduledExecutorService poller (Executors/newSingleThreadScheduledExecutor)
         ^ExecutorService worker (-> (ThreadPoolExecutor. 1 1 0 TimeUnit/MILLISECONDS
                                                          (ArrayBlockingQueue. 1)
@@ -123,7 +114,7 @@
                                                (catch Exception ex
                                                  (let [ex-result (exception-handler ex)]
                                                    (case ex-result
-                                                     :ottla/shutdown (shutdown consumer))))))))
+                                                     :ottla/shutdown (graceful-shutdown consumer))))))))
 
         _ (.scheduleAtFixedRate poller (fn* [] (do-work-fn nil)) 0 poll-ms TimeUnit/MILLISECONDS)
         _ (.submit listener ^Callable (fn* []
