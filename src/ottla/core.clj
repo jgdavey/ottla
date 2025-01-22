@@ -23,17 +23,17 @@
            (finally
              (.close (:conn config#))))))))
 
-(defn init
+(defn init!
   [config]
   (postgres/ensure-schema config))
 
 (defn add-topic!
   [config topic]
-  (postgres/create-topic config topic))
+  (postgres/create-topic config (name topic)))
 
 (defn remove-topic!
   [config topic]
-  (postgres/delete-topic config topic))
+  (postgres/delete-topic config (name topic)))
 
 (defn start-consumer
   [config selection handler & {:as opts}]
@@ -41,4 +41,4 @@
 
 (defn append
   [config topic records & {:as opts}]
-  (postgres/insert-records config topic records opts))
+  (postgres/insert-records config (name topic) records opts))

@@ -106,7 +106,9 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
 
 (defn normalize-selection
   [selection]
-  (merge selection-defaults selection))
+  (merge selection-defaults (if (string? selection)
+                              {:topic selection}
+                              selection)))
 
 (defn insert-records
   [{:keys [conn conn-map schema]}
@@ -158,7 +160,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                                [:= :group_id group]
                                [:< :cursor cursor]]}))
 
-(defn fetch-records!
+(defn fetch-records*
   [{:keys [conn schema] :as config} {:keys [topic group commit-mode] :as selection}]
   (pg/on-connection
    [conn conn]
@@ -176,3 +178,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
        (when (and final (contains? #{:auto :tx-wrap} commit-mode))
          (commit-cursor! config selection (:eid final)))
        records))))
+
+(defn fetch-records!
+  [config selection]
+  (fetch-records* config (normalize-selection selection)))

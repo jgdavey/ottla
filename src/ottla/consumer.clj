@@ -73,7 +73,7 @@
    [conn conn]
    (with-commit-mode [conn commit-mode]
      (let [config (assoc config :conn conn)
-           records (postgres/fetch-records! config selection)]
+           records (postgres/fetch-records* config selection)]
        (when (seq records)
          (handler config records))))))
 
