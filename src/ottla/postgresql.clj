@@ -1,12 +1,17 @@
 (ns ottla.postgresql
   (:require [pg.core :as pg]
             [pg.honey :as honey]
+            [pg.pool :as pool]
             [honey.sql]))
 
 (defn connect-config
   [config]
   (assert (nil? (:conn config)) "config is already connected")
-  (assoc config :conn (pg/connect (:conn-map config))))
+  (let [pool? (or (get-in config [:conn-map :pool-max-size])
+                  (get-in config [:conn-map :pool-min-size]))]
+    (assoc config :conn (if pool?
+                          (pool/pool (:conn-map config))
+                          (pg/connect (:conn-map config))))))
 
 (defn sql-entity
   [x]
