@@ -172,20 +172,21 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
   [{:keys [conn schema] :as config} {:keys [topic group commit-mode] :as selection}]
   (pg/on-connection
    [conn conn]
-   (pg/with-tx [conn]
-     (ensure-subscription config selection)
-     (let [{:keys [cursor]} (first
-                             (honey/execute conn {:select [:*]
-                                                  :from [(keyword schema "subs")]
-                                                  :where [:and [:= :topic topic]
-                                                          [:= :group_id group]]
-                                                  :limit 1
-                                                  :for :update}))
-           records (fetch-records config (assoc selection :min cursor))
-           final (peek records)]
-       (when (and final (contains? #{:auto :tx-wrap} commit-mode))
-         (commit-cursor! config selection (:eid final)))
-       records))))
+    (pg/with-tx [conn]
+     (let [config (assoc config :conn conn)]
+       (ensure-subscription config selection)
+       (let [{:keys [cursor]} (first
+                               (honey/execute conn {:select [:*]
+                                                    :from [(keyword schema "subs")]
+                                                    :where [:and [:= :topic topic]
+                                                            [:= :group_id group]]
+                                                    :limit 1
+                                                    :for :update}))
+             records (fetch-records config (assoc selection :min cursor))
+             final (peek records)]
+         (when (and final (contains? #{:auto :tx-wrap} commit-mode))
+           (commit-cursor! config selection (:eid final)))
+         records)))))
 
 (defn fetch-records!
   [config selection]
