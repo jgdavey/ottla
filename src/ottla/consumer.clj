@@ -2,6 +2,7 @@
   (:require [ottla.postgresql :as postgres]
             [pg.core :as pg])
   (:import [org.pg Connection]
+           [java.lang AutoCloseable]
            [java.io Closeable]
            [java.nio.channels ReadPendingException]
            [java.util.concurrent
@@ -23,13 +24,13 @@
 (deftype Consumer [^ExecutorService poller
                    ^ExecutorService worker
                    ^ExecutorService listener
-                   ^Connection conn
+                   ^AutoCloseable conn
                    await-close-ms]
 
   IShutdown
   (graceful-shutdown [_]
-    (.shutdown poller)
-    (.shutdown listener)
+    (.shutdownNow poller)
+    (.shutdownNow listener)
     (.shutdown worker))
 
   (shutdown-await [this await-time-ms]
@@ -37,8 +38,7 @@
     (try
       (when-not (.awaitTermination worker await-time-ms TimeUnit/MILLISECONDS)
         (.shutdownNow worker))
-      (when-not (.isClosed conn)
-        (.close conn))
+      (.close conn)
       (catch InterruptedException _
         (.shutdownNow worker)
         (.close conn)
@@ -126,7 +126,9 @@
                                              (loop []
                                                (let [continue? (try
                                                                  (.blockingRead ^Connection c)
-                                                                 true
-                                                                 (catch Exception _ false))]
+                                                                 (.isInterrupted (Thread/currentThread))
+                                                                 (catch Exception ex
+                                                                   (println "Exception while listening: " (class ex) (ex-message ex) )
+                                                                   false))]
                                                  (when continue? (recur)))))))]
     consumer))

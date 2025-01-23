@@ -1,6 +1,7 @@
 (ns ottla.core
   (:require [ottla.postgresql :as postgres]
-            [ottla.consumer :as consumer]))
+            [ottla.consumer :as consumer])
+  (:import [java.lang AutoCloseable]))
 
 (defn make-config
   [conn-map & {:as opts}]
@@ -21,7 +22,7 @@
          (try
            ~@body
            (finally
-             (.close (:conn config#))))))))
+             (.close ^AutoCloseable (:conn config#))))))))
 
 (defn init!
   [config]
