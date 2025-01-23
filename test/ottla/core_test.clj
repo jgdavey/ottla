@@ -1,28 +1,14 @@
 (ns ottla.core-test
   (:require [clojure.test :as test :refer [deftest is testing]]
-            [clojure.edn :as edn]
             [ottla.test-helpers :as th :refer [*config*]]
+            [ottla.serde.edn :refer [serialize-edn deserialize-edn]]
+            [ottla.serde.json :refer [serialize-json deserialize-json]]
             [ottla.core :as ottla]
-            [ottla.consumer :as consumer]
-            [pg.core :as pg]))
+            [ottla.consumer :as consumer]))
 
 (test/use-fixtures :each
   th/config-fixture
   th/connection-fixture)
-
-(def charset java.nio.charset.StandardCharsets/UTF_8)
-
-(defn serialize-edn
-  [obj]
-  (.getBytes (pr-str obj) charset))
-
-(defn deserialize-edn
-  [ba]
-  (with-open [rdr (java.io.PushbackReader.
-                   (java.io.InputStreamReader.
-                    (java.io.ByteArrayInputStream. ba)
-                    charset))]
-    (edn/read rdr)))
 
 (deftest test-consumer
   (let [topic "so_good"
@@ -45,6 +31,29 @@
       (is (= :received (deref p 100 :timed-out))))
     (is (= [] (mapv Throwable->map @ex)))
     (is (= [{:meta nil :key 1 :value 42 :topic topic}]
+           (mapv #(dissoc % :eid :timestamp) @records)))))
+
+(deftest test-json-serde
+  (let [topic "so_json"
+        _ (ottla/add-topic! *config* topic)
+        p (promise)
+        records (atom [])
+        ex (atom [])
+        handler (fn [_ recs]
+                  (swap! records into recs)
+                  (deliver p :received))
+        ex-handler #(swap! ex conj %)]
+    (with-open [_consumer (ottla/start-consumer (dissoc *config* :conn)
+                                                {:topic topic}
+                                                handler
+                                                {:deserialize-key deserialize-json
+                                                 :deserialize-value deserialize-json
+                                                 :exception-handler ex-handler})]
+      (ottla/append *config* topic [{:key 1 :value "42...."}] {:serialize-key serialize-json
+                                                               :serialize-value serialize-json})
+      (is (= :received (deref p 100 :timed-out))))
+    (is (= [] (mapv Throwable->map @ex)))
+    (is (= [{:meta nil :key 1 :value "42...." :topic topic}]
            (mapv #(dissoc % :eid :timestamp) @records)))))
 
 (deftest test-consumer-ex-continue
