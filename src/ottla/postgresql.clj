@@ -34,6 +34,8 @@ $$ LANGUAGE 'plpgsql';
 AFTER INSERT ON %s
 FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
 
+(def brin-index-template "CREATE INDEX ON %s USING BRIN (timestamp)")
+
 (defn trigger-function-name
   [schema]
   (sql-entity (str schema ".notify_subs")))
@@ -87,10 +89,11 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                              :values [[topic (topic-table-name topic)]]})
         (honey/execute conn {:create-table (keyword schema (topic-table-name topic))
                              :with-columns [[:eid :bigint :primary-key :generated :always :as :identity]
-                                            [:meta :jsonb]
                                             [:timestamp :timestamptz [:not nil] [:default [:now]]]
+                                            [:meta :jsonb]
                                             [:key :bytea]
                                             [:value :bytea]]})
+        (pg/query conn (format brin-index-template table-name))
         (pg/query conn (format trigger-template trigger-name table-name trigger-fn-name topic))))))
 
 (defn ->bytes
