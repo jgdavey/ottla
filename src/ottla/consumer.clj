@@ -63,13 +63,13 @@
 
 (defmacro with-commit-mode [[conn commit-mode] & body]
   `(if (= :tx-wrap ~commit-mode)
-     (pg/with-tx [~conn]
+     (pg/with-transaction [~conn ~conn]
        ~@body)
      (do ~@body)))
 
 (defn- fetch-and-handle
   [{:keys [conn] :as config} {:keys [commit-mode] :as selection} handler]
-  (pg/on-connection
+  (pg/with-connection
    [conn conn]
    (with-commit-mode [conn commit-mode]
      (let [config (assoc config :conn conn)
@@ -82,9 +82,10 @@
    {:keys [topic] :as basic-selection}
    handler
    {:keys [poll-ms deserialize-key deserialize-value xform
-           exception-handler await-close-ms]
+           exception-handler await-close-ms listen-ms]
     :or {poll-ms 15000
          await-close-ms 1000
+         listen-ms 2
          deserialize-key identity
          deserialize-value identity
          exception-handler default-exception-handler
@@ -118,17 +119,24 @@
 
         _ (.scheduleAtFixedRate poller (fn* [] (do-work-fn nil)) 0 poll-ms TimeUnit/MILLISECONDS)
         _ (.submit listener ^Callable (fn* []
-                                           (pg/with-connection [c (assoc conn-map
-                                                                         :fn-notification
-                                                                         (fn [{:keys [message]}]
-                                                                           (do-work-fn (parse-long message))))]
-                                             (pg/listen c topic)
-                                             (loop []
-                                               (let [continue? (try
-                                                                 (.blockingRead ^Connection c)
-                                                                 (.isInterrupted (Thread/currentThread))
-                                                                 (catch Exception ex
-                                                                   (println "Exception while listening: " (class ex) (ex-message ex) )
-                                                                   false))]
-                                                 (when continue? (recur)))))))]
+                                           (pg/with-connection [c conn-map]
+                                             (try
+                                               (pg/listen c topic)
+
+                                               (loop []
+                                                 (let [bail? (try (when (pg/notifications? c)
+                                                                    (doseq [{:keys [message]} (pg/drain-notifications! c)]
+                                                                      (do-work-fn (parse-long message)))
+                                                                    (.isInterrupted (Thread/currentThread)))
+                                                                  (catch org.pg.error.PGErrorIO _
+                                                                    (.isInterrupted (Thread/currentThread)))
+                                                                  (catch Exception ex
+                                                                    (println "Exception while listening: " (class ex) (ex-message ex))
+                                                                    true))]
+                                                   (when-not bail?
+                                                     (Thread/sleep (long listen-ms))
+                                                     (recur))))
+                                               (finally
+                                                 #_(println "Listener has exited")
+                                                 (pg/unlisten c topic))))))]
     consumer))

@@ -1,7 +1,6 @@
 (ns ottla.postgresql
   (:require [pg.core :as pg]
             [pg.honey :as honey]
-            [pg.pool :as pool]
             [honey.sql]))
 
 (defn connect-config
@@ -10,7 +9,7 @@
   (let [pool? (or (get-in config [:conn-map :pool-max-size])
                   (get-in config [:conn-map :pool-min-size]))]
     (assoc config :conn (if pool?
-                          (pool/pool (:conn-map config))
+                          (pg/pool (:conn-map config))
                           (pg/connect (:conn-map config))))))
 
 (defn sql-entity
@@ -53,7 +52,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
 
 (defn ensure-schema
   [{:keys [conn schema]}]
-  (pg/on-connection
+  (pg/with-connection
    [conn conn]
    (pg/with-tx [conn]
      (pg/execute conn (str "create schema if not exists \"" schema "\""))
@@ -73,7 +72,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
 
 (defn delete-topic
   [{:keys [conn schema]} topic]
-  (pg/on-connection [conn conn]
+  (pg/with-connection [conn conn]
     (pg/with-tx [conn]
       (honey/execute conn {:delete-from (keyword schema "subs")
                            :where [:= :topic topic]})
@@ -87,7 +86,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
         table-name (sql-entity table)
         trigger-fn-name (trigger-function-name schema)
         trigger-name (sql-entity (str (topic-table-name topic) "_trigger"))]
-    (pg/on-connection [conn conn]
+    (pg/with-connection [conn conn]
       (pg/with-tx [conn]
         (honey/execute conn {:insert-into (keyword schema "topics")
                              :columns [:topic :table_name]
@@ -132,7 +131,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                          (assoc :key (some-> rec :key serialize-key ->bytes))
                          (assoc :value (some-> rec :value serialize-value ->bytes))))
         conformed (into [] (map conform) records)]
-    (pg/on-connection
+    (pg/with-connection
      [conn (or conn conn-map)]
      (pg/execute conn
                  (str "insert into " (sql-entity table) "(meta, key, value) "
@@ -170,7 +169,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
 
 (defn fetch-records*
   [{:keys [conn schema] :as config} {:keys [topic group commit-mode] :as selection}]
-  (pg/on-connection
+  (pg/with-connection
    [conn conn]
     (pg/with-tx [conn]
      (let [config (assoc config :conn conn)]

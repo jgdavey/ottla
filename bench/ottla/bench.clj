@@ -29,7 +29,7 @@
 
 (defn reset-schema!
   [{:keys [conn conn-map schema] :as config}]
-  (pg/on-connection [conn (or conn conn-map)]
+  (pg/with-connection [conn (or conn conn-map)]
     (pg/execute conn (str "drop schema if exists \"" schema "\" cascade"))
     (postgres/ensure-schema config)))
 
