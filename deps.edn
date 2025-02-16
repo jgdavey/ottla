@@ -4,7 +4,8 @@
            com.github.igrishaev/pg2-honey {:mvn/version "0.1.33"}}
  :aliases {:run-tests {:extra-paths ["test"]
                        :main-opts   ["-m" "kaocha.runner"]
-                       :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}}}
+                       :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}
+                                     lambdaisland/kaocha-cloverage {:mvn/version "1.1.89"}}}
            :test {:extra-paths ["test"]
                   :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}
                                 aero/aero              {:mvn/version "1.1.6"}}}
