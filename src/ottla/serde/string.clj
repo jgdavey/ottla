@@ -9,7 +9,7 @@
 
 (defn serialize-string-bytea ^bytes [obj]
   (when obj
-    (.getBytes (str obj) StandardCharsets/UTF_8)))
+    (.getBytes ^String (str obj) StandardCharsets/UTF_8)))
 
 (defn deserialize-bytea-string ^String [^bytes value]
   (when value

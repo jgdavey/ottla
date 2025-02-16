@@ -43,7 +43,7 @@
       (catch InterruptedException _
         (.shutdownNow worker)
         (.close conn)
-        (.interrupt (Thread/currentThread)))))
+        (.interrupt ^Thread (Thread/currentThread)))))
   (status [_]
     (cond
       (.isTerminated worker) :terminated
@@ -79,6 +79,7 @@
          (handler config records))))))
 
 (defn start-consumer
+  ^Consumer
   [{:keys [conn-map] :as config}
    {:keys [topic] :as basic-selection}
    handler
@@ -130,14 +131,14 @@
                                                  (let [bail? (try (when (pg/notifications? c)
                                                                     (doseq [{:keys [message]} (pg/drain-notifications! c)]
                                                                       (do-work-fn (parse-long message)))
-                                                                    (.isInterrupted (Thread/currentThread)))
+                                                                    (.isInterrupted ^Thread (Thread/currentThread)))
                                                                   (catch org.pg.error.PGErrorIO _
-                                                                    (.isInterrupted (Thread/currentThread)))
+                                                                    (.isInterrupted ^Thread (Thread/currentThread)))
                                                                   (catch Exception ex
                                                                     (println "Exception while listening: " (class ex) (ex-message ex))
                                                                     true))]
                                                    (when-not bail?
-                                                     (Thread/sleep (long listen-ms))
+                                                     (Thread/sleep ^long (long listen-ms))
                                                      (recur))))
                                                (finally
                                                  (pg/unlisten c topic))))))]

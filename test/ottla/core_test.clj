@@ -180,7 +180,7 @@
         ex (promise)
         r3 (promise)
         handler (fn [_ [{:keys [key]}]]
-                  (case key
+                  (case (long key)
                     1 (deliver r1 :yes)
                     2 (throw (ex-info "Yikes" {}))
                     3 (deliver r3 :yes)))

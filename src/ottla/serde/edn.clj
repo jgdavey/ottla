@@ -9,7 +9,7 @@
 (def data-type :edn)
 
 (defn serialize-edn-bytea ^bytes [obj]
-  (.getBytes (pr-str obj) StandardCharsets/UTF_8))
+  (.getBytes ^String (pr-str obj) StandardCharsets/UTF_8))
 
 (defn deserialize-bytea-edn [ba]
   (with-open [rdr (PushbackReader.

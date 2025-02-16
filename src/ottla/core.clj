@@ -1,7 +1,8 @@
 (ns ottla.core
   (:require [ottla.postgresql :as postgres]
             [ottla.consumer :as consumer])
-  (:import [java.lang AutoCloseable]))
+  (:import [java.lang AutoCloseable]
+           [ottla.consumer Consumer]))
 
 (defn make-config
   [conn-map & {:as opts}]
@@ -37,6 +38,7 @@
   (postgres/delete-topic config (name topic)))
 
 (defn start-consumer
+  ^Consumer
   [config selection handler & {:as opts}]
   (consumer/start-consumer config selection handler opts))
 
