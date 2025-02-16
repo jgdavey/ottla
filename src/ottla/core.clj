@@ -29,8 +29,8 @@
   (postgres/ensure-schema config))
 
 (defn add-topic!
-  [config topic]
-  (postgres/create-topic config (name topic)))
+  [config topic & {:as opts}]
+  (postgres/create-topic config (name topic) opts))
 
 (defn remove-topic!
   [config topic]

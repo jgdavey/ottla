@@ -5,12 +5,18 @@
                     InputStreamReader
                     ByteArrayInputStream]))
 
-(defn serialize-edn [obj]
+(defn serialize-edn-bytea [obj]
   (.getBytes (pr-str obj) StandardCharsets/UTF_8))
 
-(defn deserialize-edn [ba]
+(defn deserialize-bytea-edn [ba]
   (with-open [rdr (PushbackReader.
                    (InputStreamReader.
                     (ByteArrayInputStream. ^bytes ba)
                     StandardCharsets/UTF_8))]
     (edn/read rdr)))
+
+(defn serialize-edn-text [obj]
+  (pr-str obj))
+
+(defn deserialize-text-edn [^String value]
+  (edn/read-string value))
