@@ -1,7 +1,7 @@
 (ns ottla.test-helpers
   (:require [aero.core :as aero]
             [clojure.java.io :as io]
-            [ottla.postgresql :as postgres]
+            [ottla.core :as ottla]
             [pg.core :as pg]))
 
 (def config
@@ -20,7 +20,7 @@
   [{:keys [conn conn-map schema] :as config}]
   (pg/with-connection [conn (or conn conn-map)]
     (pg/execute conn (str "drop schema if exists \"" schema "\" cascade"))
-    (postgres/ensure-schema config)))
+    (ottla/init! config)))
 
 (defn config-fixture
   [f]
@@ -30,11 +30,9 @@
 
 (defn connection-fixture
   [f]
-  (pg/with-connection [conn conn-params]
-    (binding [*conn* conn
-              *config* (merge {:schema default-schema
-                               :conn-map conn-params}
-                              *config*
-                              {:conn conn})]
+  (ottla/with-connected-config [cfg {:schema default-schema
+                                     :conn-map conn-params}]
+    (binding [*conn* (:conn cfg)
+              *config* cfg]
       (reset-schema! *config*)
       (f))))

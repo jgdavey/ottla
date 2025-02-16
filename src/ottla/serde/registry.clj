@@ -1,6 +1,6 @@
 (ns ottla.serde.registry)
 
-(defonce registry {})
+(def registry {})
 
 (defn register-serializer! [data-type col-type f]
   (alter-var-root #'registry assoc-in [:serializer data-type col-type] f))
