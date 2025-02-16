@@ -160,7 +160,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                                                  (fetch-topic cfg topic))
         table-name (keyword schema table-name)
         serialize-key (get-serializer! serialize-key key-type)
-        serialize-value (get-serializer! serialize-value key-type)
+        serialize-value (get-serializer! serialize-value val-type)
         conform (fn* [rec]
                      (-> rec
                          (assoc :key (some-> rec :key serialize-key))

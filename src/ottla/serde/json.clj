@@ -1,19 +1,8 @@
 (ns ottla.serde.json
   (:require [jsonista.core :as json]
-            [ottla.serde.registry :refer [register-deserializer! register-serializer!]]
-            [pg.core :as pg]))
+            [ottla.serde.registry :refer [register-deserializer! register-serializer!]]))
 
 (def data-type :json)
-
-;; these are handled by the PG driver
-(defn serialize-json-jsonb [obj]
-  (pg/json-wrap obj))
-
-(defn deserialize-jsonb-json [value]
-  value)
-
-(register-serializer! data-type :jsonb serialize-json-jsonb)
-(register-deserializer! data-type :jsonb deserialize-jsonb-json)
 
 (defn serialize-json-text ^String [obj]
   (json/write-value-as-string obj json/keyword-keys-object-mapper))
@@ -23,6 +12,15 @@
 
 (register-serializer! data-type :text serialize-json-text)
 (register-deserializer! data-type :text deserialize-text-json)
+
+(def serialize-json-jsonb serialize-json-text)
+
+;; these are handled by the PG driver
+(defn deserialize-jsonb-json [value]
+  value)
+
+(register-serializer! data-type :jsonb serialize-json-jsonb)
+(register-deserializer! data-type :jsonb deserialize-jsonb-json)
 
 (defn serialize-json-bytea ^bytes [obj]
   (json/write-value-as-bytes obj json/keyword-keys-object-mapper))

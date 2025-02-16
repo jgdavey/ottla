@@ -1,18 +1,11 @@
 (ns ottla.serde.string
-  (:require [pg.core :as pg]
-            [ottla.serde.registry :refer [register-deserializer! register-serializer!]])
+  (:require [ottla.serde.registry :refer [register-deserializer! register-serializer!]])
   (:import [java.nio.charset StandardCharsets]))
 
 (def data-type :string)
 
 (register-serializer! data-type :text identity)
 (register-deserializer! data-type :text identity)
-
-(defn serialize-string-jsonb [^String s]
-  (pg/json-wrap s))
-
-(register-serializer! data-type :jsonb serialize-string-jsonb)
-(register-deserializer! data-type :jsonb str)
 
 (defn serialize-string-bytea ^bytes [obj]
   (when obj

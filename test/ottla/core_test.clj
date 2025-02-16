@@ -73,9 +73,77 @@
     (with-open [_consumer (ottla/start-consumer (dissoc *config* :conn)
                                                 {:topic topic}
                                                 handler
-                                                {:deserialize-value :json
+                                                {:deserialize-key :json
+                                                 :deserialize-value :json
                                                  :exception-handler ex-handler})]
-      (ottla/append *config* topic [msg] {:serialize-value :json})
+      (ottla/append *config* topic [msg] {:serialize-key :json, :serialize-value :json})
+      (is (= :received (deref p 100 :timed-out))))
+    (is (= [] (mapv Throwable->map @ex)))
+    (is (= [(assoc msg :topic topic)]
+           (mapv #(dissoc % :eid :timestamp) @records)))
+    (ottla/remove-topic! *config* topic))
+  (let [topic "so_json"
+        _ (ottla/add-topic! *config* topic :key-type :jsonb :val-type :bytea)
+        p (promise)
+        records (atom [])
+        ex (atom [])
+        handler (fn [_ recs]
+                  (swap! records into recs)
+                  (deliver p :received))
+        ex-handler #(swap! ex conj %)
+        msg {:meta {:foo 0} :key ["key"] :value {:a {:nested ["document"]}}}]
+    (with-open [_consumer (ottla/start-consumer (dissoc *config* :conn)
+                                                {:topic topic}
+                                                handler
+                                                {:deserialize-key :json
+                                                 :deserialize-value :json
+                                                 :exception-handler ex-handler})]
+      (ottla/append *config* topic [msg] {:serialize-value :json, :serialize-key :json})
+      (is (= :received (deref p 100 :timed-out))))
+    (is (= [] (mapv Throwable->map @ex)))
+    (is (= [(assoc msg :topic topic)]
+           (mapv #(dissoc % :eid :timestamp) @records)))))
+
+(deftest test-stringy-types
+  (let [topic "so_stringy"
+        _ (ottla/add-topic! *config* topic :key-type :text)
+        p (promise)
+        records (atom [])
+        ex (atom [])
+        handler (fn [_ recs]
+                  (swap! records into recs)
+                  (deliver p :received))
+        ex-handler #(swap! ex conj %)
+        msg {:meta {:foo 0} :key "1" :value "FOOOO bar"}]
+    (with-open [_consumer (ottla/start-consumer (dissoc *config* :conn)
+                                                {:topic topic}
+                                                handler
+                                                {:deserialize-key :string
+                                                 :deserialize-value :string
+                                                 :exception-handler ex-handler})]
+      (ottla/append *config* topic [msg] {:serialize-key :string :serialize-value :string})
+      (is (= :received (deref p 100 :timed-out))))
+    (is (= [] (mapv Throwable->map @ex)))
+    (is (= [(assoc msg :topic topic)]
+           (mapv #(dissoc % :eid :timestamp) @records)))
+    (ottla/remove-topic! *config* topic))
+  (let [topic "more_strings"
+        _ (ottla/add-topic! *config* topic :val-type :text)
+        p (promise)
+        records (atom [])
+        ex (atom [])
+        handler (fn [_ recs]
+                  (swap! records into recs)
+                  (deliver p :received))
+        ex-handler #(swap! ex conj %)
+        msg {:meta {:foo 0} :key "1" :value nil}]
+    (with-open [_consumer (ottla/start-consumer (dissoc *config* :conn)
+                                                {:topic topic}
+                                                handler
+                                                {:deserialize-key :string
+                                                 :deserialize-value :string
+                                                 :exception-handler ex-handler})]
+      (ottla/append *config* topic [msg] {:serialize-key :string :serialize-value :string})
       (is (= :received (deref p 100 :timed-out))))
     (is (= [] (mapv Throwable->map @ex)))
     (is (= [(assoc msg :topic topic)]
@@ -92,7 +160,7 @@
                     1 (deliver r1 :yes)
                     2 (throw (ex-info "Yikes" {}))
                     3 (deliver r3 :yes)))
-        ex-handler (fn [e] (deliver ex e))]
+        ex-handler (fn [e] (deliver ex e) :ok)]
     (with-open [consumer (ottla/start-consumer (dissoc *config* :conn)
                                                {:topic topic}
                                                handler
