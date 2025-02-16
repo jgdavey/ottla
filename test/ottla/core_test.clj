@@ -149,6 +149,30 @@
     (is (= [(assoc msg :topic topic)]
            (mapv #(dissoc % :eid :timestamp) @records)))))
 
+(deftest test-edn-serde
+  (let [topic "so_edn"
+        _ (ottla/add-topic! *config* topic :val-type :text :key-type :bytea)
+        p (promise)
+        records (atom [])
+        ex (atom [])
+        handler (fn [_ recs]
+                  (swap! records into recs)
+                  (deliver p :received))
+        ex-handler #(swap! ex conj %)
+        msg {:meta {:foo 0} :key "1" :value {:it [:a 2 3]}}]
+    (with-open [_consumer (ottla/start-consumer (dissoc *config* :conn)
+                                                {:topic topic}
+                                                handler
+                                                {:deserialize-key :edn
+                                                 :deserialize-value :edn
+                                                 :exception-handler ex-handler})]
+      (ottla/append *config* topic [msg] {:serialize-key :edn, :serialize-value :edn})
+      (is (= :received (deref p 100 :timed-out))))
+    (is (= [] (mapv Throwable->map @ex)))
+    (is (= [(assoc msg :topic topic)]
+           (mapv #(dissoc % :eid :timestamp) @records)))
+    (ottla/remove-topic! *config* topic)))
+
 (deftest test-consumer-ex-continue
   (let [topic "theproblem"
         _ (ottla/add-topic! *config* topic)
