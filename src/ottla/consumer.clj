@@ -1,5 +1,6 @@
 (ns ottla.consumer
   (:require [ottla.postgresql :as postgres]
+            [ottla.serde.registry :refer [get-deserializer!]]
             [pg.core :as pg])
   (:import [org.pg Connection]
            [java.lang AutoCloseable]
@@ -86,14 +87,15 @@
     :or {poll-ms 15000
          await-close-ms 1000
          listen-ms 2
-         deserialize-key identity
-         deserialize-value identity
          exception-handler default-exception-handler
          xform identity}
     :as opts}]
   (assert (map? conn-map) "conn-map must be a connection map")
   (assert (string? topic) "topic is required")
   (let [{:keys [conn] :as config} (postgres/connect-config config)
+        {:keys [key-type val-type]} (postgres/fetch-topic config topic)
+        deserialize-key (get-deserializer! (or deserialize-key identity) key-type)
+        deserialize-value (get-deserializer! (or deserialize-value identity) val-type)
         xf (comp (map (fn [rec] (-> rec
                                     (update :key deserialize-key)
                                     (update :value deserialize-value))))
@@ -115,7 +117,8 @@
                                                (catch Exception ex
                                                  (let [ex-result (exception-handler ex)]
                                                    (case ex-result
-                                                     :ottla/shutdown (graceful-shutdown consumer))))))))
+                                                     :ottla/shutdown (graceful-shutdown consumer)
+                                                     nil)))))))
 
         _ (.scheduleAtFixedRate poller (fn* [] (do-work-fn nil)) 0 poll-ms TimeUnit/MILLISECONDS)
         _ (.submit listener ^Callable (fn* []
@@ -137,6 +140,5 @@
                                                      (Thread/sleep (long listen-ms))
                                                      (recur))))
                                                (finally
-                                                 #_(println "Listener has exited")
                                                  (pg/unlisten c topic))))))]
     consumer))

@@ -2,6 +2,7 @@
   (:require [clojure.string :as str]
             [pg.core :as pg]
             [pg.honey :as honey]
+            [ottla.serde.registry :refer [get-serializer!]]
             [honey.sql]))
 
 (defn connect-config
@@ -157,14 +158,14 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
   (let [{:keys [table-name key-type val-type]} (if (map? topic)
                                                  topic
                                                  (fetch-topic cfg topic))
+        table-name (keyword schema table-name)
+        serialize-key (get-serializer! serialize-key key-type)
+        serialize-value (get-serializer! serialize-value key-type)
         conform (fn* [rec]
                      (-> rec
                          (assoc :key (some-> rec :key serialize-key))
                          (assoc :value (some-> rec :value serialize-value))))
         conformed (into [] (map conform) records)]
-    (def sql                   (str "insert into " (sql-entity table-name) "(meta, key, value) "
-                       "select * from unnest($1::jsonb[], $2::" (name key-type) "[],"
-                       " $3::" (name val-type) "[])"))
     (pg/with-connection
       [conn (or conn conn-map)]
       (pg/execute conn
@@ -220,7 +221,6 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
              final (peek records)]
          (when (and final (contains? #{:auto :tx-wrap} commit-mode))
            (commit-cursor! config selection (:eid final)))
-         (def records records)
          records)))))
 
 (defn fetch-records!

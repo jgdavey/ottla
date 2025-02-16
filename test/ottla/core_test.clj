@@ -1,11 +1,11 @@
 (ns ottla.core-test
   (:require [clojure.test :as test :refer [deftest is testing]]
             [ottla.test-helpers :as th :refer [*config*]]
-            [ottla.serde.edn :refer [serialize-edn-bytea serialize-edn-text
-                                     deserialize-bytea-edn deserialize-text-edn]]
-            [ottla.serde.json :refer [serialize-object-bytea serialize-object-jsonb serialize-object-text
-                                      deserialize-bytea-object deserialize-jsonb-object]]
-            [ottla.serde.string :refer [serialize-string-text deserialize-text-string]]
+            [ottla.serde.edn :refer [serialize-edn-bytea
+                                     deserialize-bytea-edn]]
+            [ottla.serde.json :refer [serialize-json-bytea serialize-json-jsonb
+                                      deserialize-bytea-json deserialize-jsonb-json]]
+            [ottla.serde.string]
             [ottla.core :as ottla]
             [ottla.consumer :as consumer]))
 
@@ -49,11 +49,11 @@
     (with-open [_consumer (ottla/start-consumer (dissoc *config* :conn)
                                                 {:topic topic}
                                                 handler
-                                                {:deserialize-key deserialize-bytea-object
-                                                 :deserialize-value deserialize-bytea-object
+                                                {:deserialize-key :json
+                                                 :deserialize-value deserialize-bytea-json
                                                  :exception-handler ex-handler})]
-      (ottla/append *config* topic [{:key 1 :value "42...."}] {:serialize-key serialize-json
-                                                               :serialize-value serialize-json})
+      (ottla/append *config* topic [{:key 1 :value "42...."}] {:serialize-key :json
+                                                               :serialize-value serialize-json-bytea})
       (is (= :received (deref p 100 :timed-out))))
     (is (= [] (mapv Throwable->map @ex)))
     (is (= [{:meta nil :key 1 :value "42...." :topic topic}]
@@ -73,11 +73,9 @@
     (with-open [_consumer (ottla/start-consumer (dissoc *config* :conn)
                                                 {:topic topic}
                                                 handler
-                                                {:deserialize-key deserialize-text-string
-                                                 :deserialize-value deserialize-jsonb-object
+                                                {:deserialize-value :json
                                                  :exception-handler ex-handler})]
-      (ottla/append *config* topic [msg] {:serialize-key serialize-string-text
-                                          :serialize-value serialize-object-jsonb})
+      (ottla/append *config* topic [msg] {:serialize-value :json})
       (is (= :received (deref p 100 :timed-out))))
     (is (= [] (mapv Throwable->map @ex)))
     (is (= [(assoc msg :topic topic)]

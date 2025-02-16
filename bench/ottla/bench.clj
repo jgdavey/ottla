@@ -52,8 +52,8 @@
             table (keyword schema (postgres/topic-table-name topic))
             conform (fn* [rec]
                          (-> rec
-                             (assoc :key (some-> rec :key serialize-edn postgres/->bytes))
-                             (assoc :value (some-> rec :value serialize-edn postgres/->bytes))))
+                             (assoc :key (some-> rec :key serialize-edn))
+                             (assoc :value (some-> rec :value serialize-edn))))
             conformed-maps (into [] (map conform) records)]
         (reset-schema! config)
         (postgres/create-topic config topic)
