@@ -18,6 +18,6 @@
                                   com.github.igrishaev/pg2-honey   {:mvn/version "0.1.34-SNAPSHOT"}}
                   :extra-deps    {org.clojure/test.check           {:mvn/version "1.1.1"}
                                   aero/aero                        {:mvn/version "1.1.6"}
-                                  io.github.tonsky/clj-reload      {:mvn/version "0.7.1"}
-                                  com.github.seancorfield/honeysql {:mvn/version "2.6.1270"}
+                                  io.github.tonsky/clj-reload      {:mvn/version "0.9.0"}
+                                  com.github.seancorfield/honeysql {:mvn/version "2.6.1281"}
                                   com.joshuadavey/crockery         {:mvn/version "0.3.0"}}}}}
