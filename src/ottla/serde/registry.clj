@@ -3,9 +3,15 @@
 (def registry {})
 
 (defn register-serializer! [data-type col-type f]
+  (assert (ifn? f) "f must be a function")
+  (assert (keyword? data-type))
+  (assert (keyword? col-type))
   (alter-var-root #'registry assoc-in [:serializer data-type col-type] f))
 
 (defn register-deserializer! [data-type col-type f]
+  (assert (ifn? f) "f must be a function")
+  (assert (keyword? data-type))
+  (assert (keyword? col-type))
   (alter-var-root #'registry assoc-in [:deserializer data-type col-type] f))
 
 (defn- get!
