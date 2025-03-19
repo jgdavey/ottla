@@ -1,0 +1,2 @@
+{:lint-as {pg.core/with-connection clojure.core/with-open
+           pg.core/with-conn clojure.core/with-open}}
