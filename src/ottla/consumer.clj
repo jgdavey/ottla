@@ -2,10 +2,8 @@
   (:require [ottla.postgresql :as postgres]
             [ottla.serde.registry :refer [get-deserializer!]]
             [pg.core :as pg])
-  (:import [org.pg Connection]
-           [java.lang AutoCloseable]
+  (:import [java.lang AutoCloseable]
            [java.io Closeable]
-           [java.nio.channels ReadPendingException]
            [java.util.concurrent
             Executors
             ScheduledExecutorService
@@ -13,7 +11,8 @@
             ThreadPoolExecutor
             ThreadPoolExecutor$DiscardOldestPolicy
             TimeUnit
-            ArrayBlockingQueue]))
+            ArrayBlockingQueue]
+           #_[org.pg Connection]))
 
 (set! *warn-on-reflection* true)
 
