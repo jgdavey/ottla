@@ -128,10 +128,9 @@
                                                (pg/listen c topic)
 
                                                (loop []
-                                                 (let [bail? (try (when (pg/notifications? c)
-                                                                    (doseq [{:keys [message]} (pg/drain-notifications! c)]
-                                                                      (do-work-fn (parse-long message)))
-                                                                    (.isInterrupted ^Thread (Thread/currentThread)))
+                                                 (pg/poll-notifications c)
+                                                 (let [bail? (try (doseq [{:keys [message]} (pg/drain-notifications c)]
+                                                                    (do-work-fn (parse-long message)))
                                                                   (catch org.pg.error.PGErrorIO _
                                                                     (.isInterrupted ^Thread (Thread/currentThread)))
                                                                   (catch Exception ex

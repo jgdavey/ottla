@@ -17,9 +17,9 @@
                (postgres/insert-records *config* topic [{:key (.getBytes "hi" "UTF-8")
                                                          :value (.getBytes "bye" "UTF-8")}])))
         (Thread/sleep 10)
-        (is (pg/notifications? conn2))
+        (is (pos? (pg/poll-notifications conn2)))
         (is (= [{:message "1"
                  :channel topic
                  :msg :NotificationResponse
                  :self? false}]
-               (mapv #(dissoc % :pid) (pg/drain-notifications! conn2))))))))
+               (mapv #(dissoc % :pid) (pg/drain-notifications conn2))))))))
