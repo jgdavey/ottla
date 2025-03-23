@@ -2,10 +2,12 @@
   (:refer-clojure :exclude [test])
   (:require [clojure.tools.build.api :as b]
             [clojure.java.io :as io]
+            [clojure.string :as str]
             [deps-deploy.deps-deploy :as dd]))
 
 (def lib 'com.joshuadavey/ottla)
-(def version "0.1.0")
+(def version (str/trim (slurp (io/file "VERSION"))))
+(def target-dir "target")
 (def class-dir "target/classes")
 
 (defn test
@@ -27,26 +29,22 @@
           :scm {:tag (str "v" version)}
           :basis (b/create-basis {})
           :class-dir class-dir
-          :target "target"
+          :target target-dir
           :src-dirs ["src"]))
+
+(defn clean [_]
+  (b/delete {:path target-dir}))
 
 (defn build-jar
   [opts]
   (let [opts (jar-opts opts)]
-    (b/delete {:path (:target opts)})
+    (clean opts)
     (println "* Writing pom.xml")
     (b/write-pom opts)
     (println "* Copying source")
     (b/copy-dir {:src-dirs ["resources" "src"] :target-dir class-dir})
     (println (str "* Building JAR at " (:jar-file opts)))
     (b/jar opts)))
-
-(defn ci
-  "Run the CI pipeline of tests (and build the JAR)."
-  [opts]
-  (test opts)
-  (build-jar opts)
-  opts)
 
 (defn install
   "Install the JAR locally."
@@ -62,6 +60,7 @@
     (when-not (.exists (io/file jar-file))
       (println "* Running build-jar")
       (build-jar opts))
+    (println "* Deploying to Clojars")
     (dd/deploy {:installer :remote :artifact (b/resolve-path jar-file)
                 :pom-file (b/pom-path (select-keys opts [:lib :class-dir]))}))
   opts)
