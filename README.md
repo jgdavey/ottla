@@ -93,9 +93,9 @@ As a simple example, here's an edn serializer and deserializer:
 So, assuming these serializing functions, here's how we might insert edn data into a topic:
 
 ```clojure
-(ottla/append config "my-new-topic"
-              [{:value {:oh "cool"}} ,,,]
-              {:serialize-value serialize-edn})
+(ottla/append! config "my-new-topic"
+               [{:value {:oh "cool"}} ,,,]
+               {:serialize-value serialize-edn})
 ```
 
 ### Consumers

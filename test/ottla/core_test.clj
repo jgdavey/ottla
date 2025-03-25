@@ -27,7 +27,7 @@
                                                 {:deserialize-key deserialize-bytea-edn
                                                  :deserialize-value deserialize-bytea-edn
                                                  :exception-handler ex-handler})]
-      (ottla/append *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn-bytea
+      (ottla/append! *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn-bytea
                                                          :serialize-value serialize-edn-bytea})
       (is (= :received (deref p 100 :timed-out)))
       (is (= (str consumer) "Consumer[:running]")))
@@ -51,7 +51,7 @@
                                                 {:deserialize-key :json
                                                  :deserialize-value deserialize-bytea-json
                                                  :exception-handler ex-handler})]
-      (ottla/append *config* topic [{:key 1 :value "42...."}] {:serialize-key :json
+      (ottla/append! *config* topic [{:key 1 :value "42...."}] {:serialize-key :json
                                                                :serialize-value serialize-json-bytea})
       (is (= :received (deref p 100 :timed-out))))
     (is (= [] (mapv Throwable->map @ex)))
@@ -75,7 +75,7 @@
                                                 {:deserialize-key :json
                                                  :deserialize-value :json
                                                  :exception-handler ex-handler})]
-      (ottla/append *config* topic [msg] {:serialize-key :json, :serialize-value :json})
+      (ottla/append! *config* topic [msg] {:serialize-key :json, :serialize-value :json})
       (is (= :received (deref p 100 :timed-out))))
     (is (= [] (mapv Throwable->map @ex)))
     (is (= [(assoc msg :topic topic)]
@@ -97,7 +97,7 @@
                                                 {:deserialize-key :json
                                                  :deserialize-value :json
                                                  :exception-handler ex-handler})]
-      (ottla/append *config* topic [msg] {:serialize-value :json, :serialize-key :json})
+      (ottla/append! *config* topic [msg] {:serialize-value :json, :serialize-key :json})
       (is (= :received (deref p 100 :timed-out))))
     (is (= [] (mapv Throwable->map @ex)))
     (is (= [(assoc msg :topic topic)]
@@ -120,7 +120,7 @@
                                                 {:deserialize-key :string
                                                  :deserialize-value :string
                                                  :exception-handler ex-handler})]
-      (ottla/append *config* topic [msg] {:serialize-key :string :serialize-value :string})
+      (ottla/append! *config* topic [msg] {:serialize-key :string :serialize-value :string})
       (is (= :received (deref p 100 :timed-out))))
     (is (= [] (mapv Throwable->map @ex)))
     (is (= [(assoc msg :topic topic)]
@@ -142,7 +142,7 @@
                                                 {:deserialize-key :string
                                                  :deserialize-value :string
                                                  :exception-handler ex-handler})]
-      (ottla/append *config* topic [msg] {:serialize-key :string :serialize-value :string})
+      (ottla/append! *config* topic [msg] {:serialize-key :string :serialize-value :string})
       (is (= :received (deref p 100 :timed-out))))
     (is (= [] (mapv Throwable->map @ex)))
     (is (= [(assoc msg :topic topic)]
@@ -165,7 +165,7 @@
                                                 {:deserialize-key :edn
                                                  :deserialize-value :edn
                                                  :exception-handler ex-handler})]
-      (ottla/append *config* topic [msg] {:serialize-key :edn, :serialize-value :edn})
+      (ottla/append! *config* topic [msg] {:serialize-key :edn, :serialize-value :edn})
       (is (= :received (deref p 100 :timed-out))))
     (is (= [] (mapv Throwable->map @ex)))
     (is (= [(assoc msg :topic topic)]
@@ -189,15 +189,15 @@
                                                handler
                                                {:deserialize-key deserialize-bytea-edn
                                                 :exception-handler ex-handler})]
-      (ottla/append *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn-bytea
+      (ottla/append! *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn-bytea
                                                          :serialize-value serialize-edn-bytea})
       (is (not= :timed-out (deref r1 100 :timed-out)))
       (is (= :running (consumer/status consumer)))
-      (ottla/append *config* topic [{:key 2 :value 42}] {:serialize-key serialize-edn-bytea
+      (ottla/append! *config* topic [{:key 2 :value 42}] {:serialize-key serialize-edn-bytea
                                                          :serialize-value serialize-edn-bytea})
       (is (not= :timed-out (deref ex 100 :timed-out)))
       (is (= :running (consumer/status consumer)))
-      (ottla/append *config* topic [{:key 3 :value 42}] {:serialize-key serialize-edn-bytea
+      (ottla/append! *config* topic [{:key 3 :value 42}] {:serialize-key serialize-edn-bytea
                                                          :serialize-value serialize-edn-bytea})
       (is (not= :timed-out (deref r3 100 :timed-out)))
       (is (= :running (consumer/status consumer))))))
@@ -215,7 +215,7 @@
                                                {:topic topic}
                                                handler
                                                {:exception-handler ex-handler})]
-      (ottla/append *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn-bytea
+      (ottla/append! *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn-bytea
                                                          :serialize-value serialize-edn-bytea})
       (is (= :running (consumer/status consumer)))
       (is (not= :timed-out (deref ex 100 :timed-out)))
