@@ -178,10 +178,11 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
 
 (defn ensure-subscription
   [{:keys [conn schema]} {:keys [topic group]}]
-  (honey/execute conn {:insert-into [(keyword schema "subs")]
-                       :values [{:topic topic :group_id group}]
-                       :on-conflict [:topic :group_id]
-                       :do-nothing true}))
+  (let [result (honey/execute conn {:insert-into [(keyword schema "subs")]
+                                    :values [{:topic topic :group_id group}]
+                                    :on-conflict [:topic :group_id]
+                                    :do-nothing true})]
+    (= {:inserted 1} (first result))))
 
 (defn- fetch-records
   [{:keys [conn schema]} {:keys [topic min max limit xf]}]
@@ -205,24 +206,24 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
 
 (defn fetch-records*
   [{:keys [conn schema] :as config} {:keys [topic group commit-mode] :as selection}]
-  (pg/with-connection
-   [conn conn]
+  (pg/with-connection [conn conn]
     (pg/with-transaction [conn conn]
-     (let [config (assoc config :conn conn)]
-       (ensure-subscription config selection)
-       (let [{:keys [cursor]} (first
-                               (honey/execute conn {:select [:*]
-                                                    :from [(keyword schema "subs")]
-                                                    :where [:and [:= :topic topic]
-                                                            [:= :group_id group]]
-                                                    :limit 1
-                                                    :for :update}))
-             records (fetch-records config (assoc selection :min cursor))
-             final (peek records)]
-         (when (and final (contains? #{:auto :tx-wrap} commit-mode))
-           (commit-cursor! config selection (:eid final)))
-         records)))))
+      (let [config (assoc config :conn conn)
+            {:keys [cursor]} (first
+                              (honey/execute conn {:select [:*]
+                                                   :from [(keyword schema "subs")]
+                                                   :where [:and [:= :topic topic]
+                                                           [:= :group_id group]]
+                                                   :limit 1
+                                                   :for :update}))
+            records (fetch-records config (assoc selection :min cursor))
+            final (peek records)]
+        (when (and final (contains? #{:auto :tx-wrap} commit-mode))
+          (commit-cursor! config selection (:eid final)))
+        records))))
 
 (defn fetch-records!
   [config selection]
-  (fetch-records* config (normalize-selection selection)))
+  (let [selection (normalize-selection selection)]
+    (ensure-subscription config selection)
+    (fetch-records* config selection)))

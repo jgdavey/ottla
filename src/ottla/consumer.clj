@@ -103,6 +103,7 @@
         selection (assoc (postgres/normalize-selection basic-selection) :xf xf)
         _ (assert (contains? postgres/commit-modes
                              (:commit-mode selection)) "unknown commit-mode")
+        _ (postgres/ensure-subscription config selection)
         ^ScheduledExecutorService poller (Executors/newSingleThreadScheduledExecutor)
         ^ExecutorService worker (-> (ThreadPoolExecutor. 1 1 0 TimeUnit/MILLISECONDS
                                                          (ArrayBlockingQueue. 1)
@@ -121,11 +122,12 @@
                                                      nil)))))))
 
         _ (.scheduleAtFixedRate poller (fn* [] (do-work-fn nil)) 0 poll-ms TimeUnit/MILLISECONDS)
+        listening? (promise)
         _ (.submit listener ^Callable (fn* []
                                            (pg/with-connection [c conn-map]
                                              (try
                                                (pg/listen c topic)
-
+                                               (deliver listening? true)
                                                (loop []
                                                  (pg/poll-notifications c)
                                                  (let [bail? (try (doseq [{:keys [message]} (pg/drain-notifications c)]
@@ -140,4 +142,6 @@
                                                      (recur))))
                                                (finally
                                                  (pg/unlisten c topic))))))]
+    (when-not (deref listening? 100 false)
+      (println "Warning: Not listening after 100 ms"))
     consumer))
