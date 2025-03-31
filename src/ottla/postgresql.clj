@@ -59,11 +59,11 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
 (def default-subscription-group "default")
 
 (defn- ->topic-map
-  [{:keys [topic table_name key_type val_type]}]
+  [{:keys [topic table_name key_type value_type]}]
   {:topic topic
    :table-name table_name
    :key-type (keyword key_type)
-   :val-type (keyword val_type)})
+   :value-type (keyword value_type)})
 
 (defn ensure-schema
   [{:keys [conn schema]}]
@@ -78,7 +78,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                                     [:topic :text [:not nil] :unique]
                                     [:table_name :text [:not nil] :unique]
                                     [:key_type :text [:not nil]]
-                                    [:val_type :text [:not nil]]]})
+                                    [:value_type :text [:not nil]]]})
      (honey/execute conn
                     {:create-table [(keyword schema "subs") :if-not-exists]
                      :with-columns [[:sid :int :primary-key :generated :always :as :identity]
@@ -100,13 +100,13 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
 (def column-types #{:bytea :text :jsonb})
 
 (defn create-topic
-  [{:keys [conn schema]} topic & {:keys [key-type val-type] :as opts
+  [{:keys [conn schema]} topic & {:keys [key-type value-type] :as opts
                                   :or {key-type :bytea
-                                       val-type :bytea}}]
+                                       value-type :bytea}}]
   (when-not (contains? column-types key-type)
     (throw (IllegalArgumentException. "Invalid key-type")))
-  (when-not (contains? column-types val-type)
-    (throw (IllegalArgumentException. "Invalid val-type")))
+  (when-not (contains? column-types value-type)
+    (throw (IllegalArgumentException. "Invalid value-type")))
   (let [topic (normalize-topic-name topic)
         table (keyword schema (topic-table-name topic))
         table-name (sql-entity table)
@@ -115,8 +115,8 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
     (pg/with-connection [conn conn]
       (pg/with-transaction [conn conn]
         (let [[row] (honey/execute conn {:insert-into (keyword schema "topics")
-                                         :columns [:topic :table_name :key_type :val_type]
-                                         :values [[topic (topic-table-name topic) (name key-type) (name val-type)]]
+                                         :columns [:topic :table_name :key_type :value_type]
+                                         :values [[topic (topic-table-name topic) (name key-type) (name value-type)]]
                                          :returning :*})]
 
           (honey/execute conn {:create-table (keyword schema (topic-table-name topic))
@@ -124,14 +124,14 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                                               [:timestamp :timestamptz [:not nil] [:default [:now]]]
                                               [:meta :jsonb]
                                               [:key key-type]
-                                              [:value val-type]]})
+                                              [:value value-type]]})
           (pg/query conn (format brin-index-template table-name))
           (pg/query conn (format trigger-template trigger-name table-name trigger-fn-name topic))
           (->topic-map row))))))
 
 (defn fetch-topic
   [{:keys [conn schema]} topic-name]
-  (let [[row] (honey/execute conn {:select [:topic :table_name :key_type :val_type]
+  (let [[row] (honey/execute conn {:select [:topic :table_name :key_type :value_type]
                                    :from (keyword schema "topics")
                                    :where [:= :topic topic-name]})]
     (->topic-map row)))
@@ -155,12 +155,12 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
       :or {serialize-key identity
            serialize-value identity}
       :as opts}]
-  (let [{:keys [table-name key-type val-type]} (if (map? topic)
-                                                 topic
-                                                 (fetch-topic cfg topic))
+  (let [{:keys [table-name key-type value-type]} (if (map? topic)
+                                                   topic
+                                                   (fetch-topic cfg topic))
         table-name (keyword schema table-name)
         serialize-key (get-serializer! serialize-key key-type)
-        serialize-value (get-serializer! serialize-value val-type)
+        serialize-value (get-serializer! serialize-value value-type)
         conform (fn* [rec]
                      (-> rec
                          (assoc :key (some-> rec :key serialize-key))
@@ -171,7 +171,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
       (pg/execute conn
                   (str "insert into " (sql-entity table-name) "(meta, key, value) "
                        "select * from unnest($1::jsonb[], $2::" (name key-type) "[],"
-                       " $3::" (name val-type) "[])")
+                       " $3::" (name value-type) "[])")
                   {:params [(mapv :meta conformed)
                             (mapv :key conformed)
                             (mapv :value conformed)]}))))

@@ -60,7 +60,7 @@
 
 (deftest test-json-column-type
   (let [topic "so_json"
-        _ (ottla/add-topic! *config* topic :key-type :text :val-type :jsonb)
+        _ (ottla/add-topic! *config* topic :key-type :text :value-type :jsonb)
         p (promise)
         records (atom [])
         ex (atom [])
@@ -82,7 +82,7 @@
            (mapv #(dissoc % :eid :timestamp) @records)))
     (ottla/remove-topic! *config* topic))
   (let [topic "so_json"
-        _ (ottla/add-topic! *config* topic :key-type :jsonb :val-type :bytea)
+        _ (ottla/add-topic! *config* topic :key-type :jsonb :value-type :bytea)
         p (promise)
         records (atom [])
         ex (atom [])
@@ -127,7 +127,7 @@
            (mapv #(dissoc % :eid :timestamp) @records)))
     (ottla/remove-topic! *config* topic))
   (let [topic "more_strings"
-        _ (ottla/add-topic! *config* topic :val-type :text)
+        _ (ottla/add-topic! *config* topic :value-type :text)
         p (promise)
         records (atom [])
         ex (atom [])
@@ -150,7 +150,7 @@
 
 (deftest test-edn-serde
   (let [topic "so_edn"
-        _ (ottla/add-topic! *config* topic :val-type :text :key-type :bytea)
+        _ (ottla/add-topic! *config* topic :value-type :text :key-type :bytea)
         p (promise)
         records (atom [])
         ex (atom [])

@@ -36,10 +36,10 @@
     - `config`   a connected config map
     - `topic`    the name of the topic that will be published to and subscribed to
     - `opts`     optional map containing any of the following keys:
-       - `:val-type` column type for record values
-       - `:key-type` column type for record keys
+       - `:value-type` column type for record values
+       - `:key-type`   column type for record keys
 
-  Both key-type and val-type can be any of :bytea, :jsonb, or :text
+  Both key-type and value-type can be any of :bytea, :jsonb, or :text
 
   The default is :bytea (binary data) and can handle any serializer.
 
