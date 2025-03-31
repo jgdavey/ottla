@@ -196,13 +196,20 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                           limit (assoc :limit limit))
                    {:into [xf []]})))
 
-(defn commit-cursor!
+(defn commit-offset!
   [{:keys [conn schema]} {:keys [topic group]} cursor]
   (honey/execute conn {:update [(keyword schema "subs")]
                        :set {:cursor cursor}
                        :where [:and [:= :topic topic]
                                [:= :group_id group]
                                [:< :cursor cursor]]}))
+
+(defn reset-offset!
+  [{:keys [conn schema]} {:keys [topic group]} cursor]
+  (honey/execute conn {:update [(keyword schema "subs")]
+                       :set {:cursor cursor}
+                       :where [:and [:= :topic topic]
+                               [:= :group_id group]]}))
 
 (defn fetch-records*
   [{:keys [conn schema] :as config} {:keys [topic group commit-mode] :as selection}]
@@ -219,7 +226,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
             records (fetch-records config (assoc selection :min cursor))
             final (peek records)]
         (when (and final (contains? #{:auto :tx-wrap} commit-mode))
-          (commit-cursor! config selection (:eid final)))
+          (commit-offset! config selection (:eid final)))
         records))))
 
 (defn fetch-records!

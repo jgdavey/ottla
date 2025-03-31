@@ -86,6 +86,28 @@
   [config selection handler & {:as opts}]
   (consumer/start-consumer config selection handler opts))
 
+(defn commit-offset!
+  "Only use with consumer tx-mode `:manual`.
+
+    - `selection` a topic (string) or a map:
+       - `:topic`    (string) name of topic to listen to
+       - `:group`    (string) name of listening group (default: \"default\")
+    - `message`   the record that has been processed
+
+  The selection must match the what was passed to `start-consumer`.
+
+  Note: when using tx-mode `:auto` and `:tx-wrap`, this is handled
+  automatically."
+  [config selection record]
+  (postgres/commit-offset! config selection (:eid record)))
+
+(defn reset-consumer-offset!
+  "Change a consumer's offset to the provided number exactly.
+  Use `0` as the new-offset to replay all records from the earliest
+  available."
+  [config selection new-offset]
+  (postgres/reset-offset! config selection new-offset))
+
 (defn append!
   "Add records to a topic stream.
     - `config`   a connected config map
