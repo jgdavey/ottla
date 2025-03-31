@@ -5,7 +5,8 @@
             [ottla.serde.json :refer [serialize-json-bytea deserialize-bytea-json]]
             [ottla.serde.string]
             [ottla.core :as ottla]
-            [ottla.consumer :as consumer]))
+            [ottla.consumer :as consumer]
+            [pg.core :as pg]))
 
 (test/use-fixtures :each
   th/config-fixture
@@ -21,14 +22,17 @@
                   (swap! records into recs)
                   (deliver p :received))
         ex-handler #(swap! ex conj %)]
+    (is (= 1 (-> (pg/execute th/*conn* "select 1 as one")
+                 first
+                 :one)))
     (with-open [consumer (ottla/start-consumer (dissoc *config* :conn)
-                                                {:topic topic}
-                                                handler
-                                                {:deserialize-key deserialize-bytea-edn
-                                                 :deserialize-value deserialize-bytea-edn
-                                                 :exception-handler ex-handler})]
+                                               {:topic topic}
+                                               handler
+                                               {:deserialize-key deserialize-bytea-edn
+                                                :deserialize-value deserialize-bytea-edn
+                                                :exception-handler ex-handler})]
       (ottla/append! *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn-bytea
-                                                         :serialize-value serialize-edn-bytea})
+                                                          :serialize-value serialize-edn-bytea})
       (is (= :received (deref p 100 :timed-out)))
       (is (= (str consumer) "Consumer[:running]")))
     (is (= [] (mapv Throwable->map @ex)))
