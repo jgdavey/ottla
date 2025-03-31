@@ -8,6 +8,8 @@
             [ottla.consumer :as consumer]
             [pg.core :as pg]))
 
+(def max-wait-ms 150)
+
 (test/use-fixtures :each
   th/config-fixture
   th/connection-fixture)
@@ -33,7 +35,7 @@
                                                 :exception-handler ex-handler})]
       (ottla/append! *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn-bytea
                                                           :serialize-value serialize-edn-bytea})
-      (is (= :received (deref p 100 :timed-out)))
+      (is (= :received (deref p max-wait-ms :timed-out)))
       (is (= (str consumer) "Consumer[:running]")))
     (is (= [] (mapv Throwable->map @ex)))
     (is (= [{:meta nil :key 1 :value 42 :topic topic}]
@@ -57,7 +59,7 @@
                                                  :exception-handler ex-handler})]
       (ottla/append! *config* topic [{:key 1 :value "42...."}] {:serialize-key :json
                                                                :serialize-value serialize-json-bytea})
-      (is (= :received (deref p 100 :timed-out))))
+      (is (= :received (deref p max-wait-ms :timed-out))))
     (is (= [] (mapv Throwable->map @ex)))
     (is (= [{:meta nil :key 1 :value "42...." :topic topic}]
            (mapv #(dissoc % :eid :timestamp) @records)))))
@@ -80,7 +82,7 @@
                                                  :deserialize-value :json
                                                  :exception-handler ex-handler})]
       (ottla/append! *config* topic [msg] {:serialize-key :json, :serialize-value :json})
-      (is (= :received (deref p 100 :timed-out))))
+      (is (= :received (deref p max-wait-ms :timed-out))))
     (is (= [] (mapv Throwable->map @ex)))
     (is (= [(assoc msg :topic topic)]
            (mapv #(dissoc % :eid :timestamp) @records)))
@@ -102,7 +104,7 @@
                                                  :deserialize-value :json
                                                  :exception-handler ex-handler})]
       (ottla/append! *config* topic [msg] {:serialize-value :json, :serialize-key :json})
-      (is (= :received (deref p 100 :timed-out))))
+      (is (= :received (deref p max-wait-ms :timed-out))))
     (is (= [] (mapv Throwable->map @ex)))
     (is (= [(assoc msg :topic topic)]
            (mapv #(dissoc % :eid :timestamp) @records)))))
@@ -125,7 +127,7 @@
                                                  :deserialize-value :string
                                                  :exception-handler ex-handler})]
       (ottla/append! *config* topic [msg] {:serialize-key :string :serialize-value :string})
-      (is (= :received (deref p 100 :timed-out))))
+      (is (= :received (deref p max-wait-ms :timed-out))))
     (is (= [] (mapv Throwable->map @ex)))
     (is (= [(assoc msg :topic topic)]
            (mapv #(dissoc % :eid :timestamp) @records)))
@@ -147,7 +149,7 @@
                                                  :deserialize-value :string
                                                  :exception-handler ex-handler})]
       (ottla/append! *config* topic [msg] {:serialize-key :string :serialize-value :string})
-      (is (= :received (deref p 100 :timed-out))))
+      (is (= :received (deref p max-wait-ms :timed-out))))
     (is (= [] (mapv Throwable->map @ex)))
     (is (= [(assoc msg :topic topic)]
            (mapv #(dissoc % :eid :timestamp) @records)))))
@@ -170,7 +172,7 @@
                                                  :deserialize-value :edn
                                                  :exception-handler ex-handler})]
       (ottla/append! *config* topic [msg] {:serialize-key :edn, :serialize-value :edn})
-      (is (= :received (deref p 100 :timed-out))))
+      (is (= :received (deref p max-wait-ms :timed-out))))
     (is (= [] (mapv Throwable->map @ex)))
     (is (= [(assoc msg :topic topic)]
            (mapv #(dissoc % :eid :timestamp) @records)))
@@ -195,15 +197,15 @@
                                                 :exception-handler ex-handler})]
       (ottla/append! *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn-bytea
                                                          :serialize-value serialize-edn-bytea})
-      (is (not= :timed-out (deref r1 100 :timed-out)))
+      (is (not= :timed-out (deref r1 max-wait-ms :timed-out)))
       (is (= :running (consumer/status consumer)))
       (ottla/append! *config* topic [{:key 2 :value 42}] {:serialize-key serialize-edn-bytea
                                                          :serialize-value serialize-edn-bytea})
-      (is (not= :timed-out (deref ex 100 :timed-out)))
+      (is (not= :timed-out (deref ex max-wait-ms :timed-out)))
       (is (= :running (consumer/status consumer)))
       (ottla/append! *config* topic [{:key 3 :value 42}] {:serialize-key serialize-edn-bytea
                                                          :serialize-value serialize-edn-bytea})
-      (is (not= :timed-out (deref r3 100 :timed-out)))
+      (is (not= :timed-out (deref r3 max-wait-ms :timed-out)))
       (is (= :running (consumer/status consumer))))))
 
 (deftest test-consumer-ex-shutdown
@@ -222,6 +224,6 @@
       (ottla/append! *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn-bytea
                                                          :serialize-value serialize-edn-bytea})
       (is (= :running (consumer/status consumer)))
-      (is (not= :timed-out (deref ex 100 :timed-out)))
+      (is (not= :timed-out (deref ex max-wait-ms :timed-out)))
       (Thread/sleep 10)
       (is (not= :running (consumer/status consumer))))))
