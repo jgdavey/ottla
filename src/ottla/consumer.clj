@@ -14,8 +14,6 @@
             ArrayBlockingQueue]
            #_[org.pg Connection]))
 
-(set! *warn-on-reflection* true)
-
 (defprotocol IShutdown
   (graceful-shutdown [_])
   (shutdown-await [_ await-time-ms])
@@ -123,25 +121,26 @@
 
         _ (.scheduleAtFixedRate poller (fn* [] (do-work-fn nil)) 0 poll-ms TimeUnit/MILLISECONDS)
         listening? (promise)
-        _ (.submit listener ^Callable (fn* []
-                                           (pg/with-connection [c conn-map]
-                                             (try
-                                               (pg/listen c topic)
-                                               (deliver listening? true)
-                                               (loop []
-                                                 (pg/poll-notifications c)
-                                                 (let [bail? (try (doseq [{:keys [message]} (pg/drain-notifications c)]
-                                                                    (do-work-fn (parse-long message)))
-                                                                  (catch org.pg.error.PGErrorIO _
-                                                                    (.isInterrupted ^Thread (Thread/currentThread)))
-                                                                  (catch Exception ex
-                                                                    (println "Exception while listening: " (class ex) (ex-message ex))
-                                                                    true))]
-                                                   (when-not bail?
-                                                     (Thread/sleep ^long (long listen-ms))
-                                                     (recur))))
-                                               (finally
-                                                 (pg/unlisten c topic))))))]
+        listen-fn (fn* []
+                    (pg/with-connection [c conn-map]
+                      (try
+                        (pg/listen c topic)
+                        (deliver listening? true)
+                        (loop []
+                          (pg/poll-notifications c)
+                          (let [bail? (try (doseq [{:keys [message]} (pg/drain-notifications c)]
+                                             (do-work-fn (parse-long message)))
+                                           (catch org.pg.error.PGErrorIO _
+                                             (Thread/interrupted))
+                                           (catch Exception ex
+                                             (println "Exception while listening: " (class ex) (ex-message ex))
+                                             true))]
+                            (when-not bail?
+                              (Thread/sleep listen-ms)
+                              (recur))))
+                        (finally
+                          (pg/unlisten c topic)))))
+        _ (.submit listener ^Callable listen-fn)]
     (when-not (deref listening? 100 false)
       (println "Warning: Not listening after 100 ms"))
     consumer))
