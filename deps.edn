@@ -7,8 +7,9 @@
                        :extra-deps  {lambdaisland/kaocha {:mvn/version "1.91.1392"}
                                      lambdaisland/kaocha-cloverage {:mvn/version "1.1.89"}}}
            :test {:extra-paths ["test"]
-                  :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}
-                                aero/aero              {:mvn/version "1.1.6"}}}
+                  :extra-deps  {org.clojure/test.check     {:mvn/version "1.1.1"}
+                                nubank/matcher-combinators {:mvn/version "3.9.1"}
+                                aero/aero                  {:mvn/version "1.1.6"}}}
            :bench {:extra-paths ["bench"]
                    :extra-deps {criterium/criterium    {:mvn/version "0.4.6"}}}
            :dev  {:extra-paths   ["test" "dev"]
@@ -18,7 +19,8 @@
                                   aero/aero                        {:mvn/version "1.1.6"}
                                   io.github.tonsky/clj-reload      {:mvn/version "0.9.4"}
                                   com.github.seancorfield/honeysql {:mvn/version "2.7.1295"}
-                                  com.joshuadavey/crockery         {:mvn/version "0.3.0"}}}
+                                  com.joshuadavey/crockery         {:mvn/version "0.3.0"}
+                                  nubank/matcher-combinators       {:mvn/version "3.9.1"}}}
            :build {:deps {io.github.clojure/tools.build {:git/tag "v0.10.7" :git/sha "573711e"}
                           slipset/deps-deploy {:mvn/version "0.2.2"}}
                    :ns-default build}}}

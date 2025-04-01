@@ -182,7 +182,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                                     :values [{:topic topic :group_id group}]
                                     :on-conflict [:topic :group_id]
                                     :do-nothing true})]
-    (= {:inserted 1} (first result))))
+    (= 1 (-> result :inserted))))
 
 (defn- fetch-records
   [{:keys [conn schema]} {:keys [topic min max limit xf]}]
