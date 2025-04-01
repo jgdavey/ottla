@@ -1,9 +1,7 @@
 (ns ottla.core-test
-  (:require [clojure.test :as test :refer [deftest is testing]]
+  (:require [clojure.test :as test :refer [deftest is]]
             [ottla.test-helpers :as th :refer [*config*]]
             [ottla.serde.edn :refer [serialize-edn-bytea deserialize-bytea-edn]]
-            [ottla.serde.json :refer [serialize-json-bytea deserialize-bytea-json]]
-            [ottla.serde.string]
             [ottla.core :as ottla]
             [ottla.consumer :as consumer]
             [pg.core :as pg]))
@@ -55,10 +53,10 @@
                                                 {:topic topic}
                                                 handler
                                                 {:deserialize-key :json
-                                                 :deserialize-value deserialize-bytea-json
+                                                 :deserialize-value :json
                                                  :exception-handler ex-handler})]
       (ottla/append! *config* topic [{:key 1 :value "42...."}] {:serialize-key :json
-                                                               :serialize-value serialize-json-bytea})
+                                                                :serialize-value :json})
       (is (= :received (deref p max-wait-ms :timed-out))))
     (is (= [] (mapv Throwable->map @ex)))
     (is (= [{:meta nil :key 1 :value "42...." :topic topic}]

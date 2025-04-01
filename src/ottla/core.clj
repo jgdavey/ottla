@@ -1,6 +1,9 @@
 (ns ottla.core
   (:require [ottla.postgresql :as postgres]
-            [ottla.consumer :as consumer])
+            [ottla.consumer :as consumer]
+            [ottla.serde.edn]
+            [ottla.serde.json]
+            [ottla.serde.string])
   (:import [java.lang AutoCloseable]
            [ottla.consumer Consumer]))
 
