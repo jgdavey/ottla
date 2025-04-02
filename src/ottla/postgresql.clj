@@ -56,6 +56,14 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
   [topic]
   (str "log__" topic))
 
+(def ^:private ensure-subs-sql
+  "INSERT INTO %s(topic, group_id)
+SELECT $1, $2
+WHERE NOT EXISTS (
+  select 1 from %s where topic=$1 AND group_id=$2
+)
+ON CONFLICT (topic, group_id) DO NOTHING")
+
 (def default-subscription-group "default")
 
 (defn- ->topic-map
@@ -178,10 +186,9 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
 
 (defn ensure-subscription
   [{:keys [conn schema]} {:keys [topic group]}]
-  (let [result (honey/execute conn {:insert-into [(keyword schema "subs")]
-                                    :values [{:topic topic :group_id group}]
-                                    :on-conflict [:topic :group_id]
-                                    :do-nothing true})]
+  (let [subs-table (sql-entity (keyword schema "subs"))
+        sql (format ensure-subs-sql subs-table subs-table)
+        result (pg/execute conn sql {:params [topic group]})]
     (= 1 (-> result :inserted))))
 
 (defn- fetch-records
