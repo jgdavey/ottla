@@ -3,6 +3,13 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+### Added
+* Expose helper method for making deserializer xform
+
+### Fixed
+
+* Don't increment subscriptions sequence when ensuring
+
 ## [0.3.0] - 2025-04-01
 
 ### Added
