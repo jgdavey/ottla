@@ -2,7 +2,7 @@
   (:require [clojure.string :as str]
             [pg.core :as pg]
             [pg.honey :as honey]
-            [ottla.serde.registry :refer [get-serializer!]]
+            [ottla.serde.registry :refer [get-serializer! get-deserializer!]]
             [honey.sql]))
 
 (defn connect-config
@@ -217,6 +217,15 @@ ON CONFLICT (topic, group_id) DO NOTHING")
                        :set {:cursor cursor}
                        :where [:and [:= :topic topic]
                                [:= :group_id group]]}))
+
+(defn deserializer-xf
+  [config topic {:keys [deserialize-key deserialize-value]}]
+  (let [{:keys [key-type value-type]} (fetch-topic config topic)
+        deserialize-key (get-deserializer! (or deserialize-key identity) key-type)
+        deserialize-value (get-deserializer! (or deserialize-value identity) value-type)]
+    (map (fn [rec] (-> rec
+                       (update :key deserialize-key)
+                       (update :value deserialize-value))))))
 
 (defn fetch-records*
   [{:keys [conn schema] :as config} {:keys [topic group commit-mode] :as selection}]

@@ -91,13 +91,8 @@
   (assert (map? conn-map) "conn-map must be a connection map")
   (assert (string? topic) "topic is required")
   (let [{:keys [conn] :as config} (postgres/connect-config config)
-        {:keys [key-type value-type]} (postgres/fetch-topic config topic)
-        deserialize-key (get-deserializer! (or deserialize-key identity) key-type)
-        deserialize-value (get-deserializer! (or deserialize-value identity) value-type)
-        xf (comp (map (fn [rec] (-> rec
-                                    (update :key deserialize-key)
-                                    (update :value deserialize-value))))
-                 xform)
+        deserialized (postgres/deserializer-xf config topic opts)
+        xf (comp deserialized xform)
         selection (assoc (postgres/normalize-selection basic-selection) :xf xf)
         _ (assert (contains? postgres/commit-modes
                              (:commit-mode selection)) "unknown commit-mode")
