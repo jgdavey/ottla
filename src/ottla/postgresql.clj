@@ -50,6 +50,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
   [topic]
   (-> topic
       (str/replace \- \_)
+      (str/replace \. \_)
       (str/replace #"[^\w\.]" "")))
 
 (defn topic-table-name
@@ -101,9 +102,11 @@ ON CONFLICT (topic, group_id) DO NOTHING")
     (pg/with-transaction [conn conn]
       (honey/execute conn {:delete-from (keyword schema "subs")
                            :where [:= :topic topic]})
-      (honey/execute conn {:delete-from (keyword schema "topics")
-                           :where [:= :topic topic]})
-      (honey/execute conn {:drop-table [:if-exists (keyword schema (topic-table-name topic))]}))))
+      (let [[{:keys [table_name]}] (honey/execute conn {:delete-from (keyword schema "topics")
+                                                        :where [:= :topic topic]
+                                                        :returning :*})]
+        (honey/execute conn {:drop-table [:if-exists (keyword table_name)]})))))
+
 
 (def column-types #{:bytea :text :jsonb})
 
@@ -115,19 +118,19 @@ ON CONFLICT (topic, group_id) DO NOTHING")
     (throw (IllegalArgumentException. "Invalid key-type")))
   (when-not (contains? column-types value-type)
     (throw (IllegalArgumentException. "Invalid value-type")))
-  (let [topic (normalize-topic-name topic)
-        table (keyword schema (topic-table-name topic))
+  (let [normalized-topic (normalize-topic-name topic)
+        table (keyword schema (topic-table-name normalized-topic))
         table-name (sql-entity table)
         trigger-fn-name (trigger-function-name schema)
-        trigger-name (sql-entity (str (topic-table-name topic) "_trigger"))]
+        trigger-name (sql-entity (str (topic-table-name normalized-topic) "_trigger"))]
     (pg/with-connection [conn conn]
       (pg/with-transaction [conn conn]
         (let [[row] (honey/execute conn {:insert-into (keyword schema "topics")
                                          :columns [:topic :table_name :key_type :value_type]
-                                         :values [[topic (topic-table-name topic) (name key-type) (name value-type)]]
+                                         :values [[topic (topic-table-name normalized-topic) (name key-type) (name value-type)]]
                                          :returning :*})]
 
-          (honey/execute conn {:create-table (keyword schema (topic-table-name topic))
+          (honey/execute conn {:create-table (keyword schema (topic-table-name normalized-topic))
                                :with-columns [[:eid :bigint :primary-key :generated :always :as :identity]
                                               [:timestamp :timestamptz [:not nil] [:default [:now]]]
                                               [:meta :jsonb]

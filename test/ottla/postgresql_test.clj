@@ -15,6 +15,7 @@
   (let [topic "my-topic"]
     (pg/with-connection [conn2 th/conn-params]
       (let [{:keys [topic]} (postgres/create-topic *config* topic)]
+        (is (= topic "my-topic"))
         (pg/listen conn2 topic)
         (is (= {:inserted 1}
                (postgres/insert-records *config* topic [{:key (.getBytes "hi" "UTF-8")
