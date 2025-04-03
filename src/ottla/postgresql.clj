@@ -142,10 +142,22 @@ ON CONFLICT (topic, group_id) DO NOTHING")
 
 (defn fetch-topic
   [{:keys [conn schema]} topic-name]
-  (let [[row] (honey/execute conn {:select [:topic :table_name :key_type :value_type]
-                                   :from (keyword schema "topics")
-                                   :where [:= :topic topic-name]})]
+  (let [[row] (honey/execute conn
+                             {:select [:topic :table_name :key_type :value_type]
+                              :from (keyword schema "topics")
+                              :where [:= :topic topic-name]})]
     (->topic-map row)))
+
+(defn all-topics
+  [{:keys [conn schema]}]
+  (honey/execute conn {:select [:topic [[:coalesce {:select [[[:jsonb_agg
+                                                               [:jsonb_build_object
+                                                                [:inline "offset"] :cursor
+                                                                [:inline "group"] :group_id]] :sub]]
+                                                    :from [[(keyword schema "subs") :s]]
+                                                    :where [:= :s.topic :t.topic]}
+                                         [:raw "'[]'::jsonb"]] :subscriptions]]
+                       :from [[(keyword schema "topics") :t]]}))
 
 (def commit-modes #{:manual :auto :tx-wrap})
 
@@ -197,7 +209,7 @@ ON CONFLICT (topic, group_id) DO NOTHING")
 (defn- fetch-records
   [{:keys [conn schema]} {:keys [topic min max limit xf]}]
   (let [xf (or xf identity)
-        table (keyword schema (topic-table-name topic))]
+        table (keyword schema (topic-table-name (normalize-topic-name topic)))]
     (honey/execute conn (cond-> {:select [:* [topic :topic]]
                                  :from [[table :t]]
                                  :where (cond-> [:and [:> :eid min]]

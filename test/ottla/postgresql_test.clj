@@ -79,3 +79,27 @@
                     :topic topic}]
                   (postgres/fetch-records! *config* selection)))
       (is (= [] (postgres/fetch-records! *config* selection))))))
+
+(deftest all-topics
+  (let [topic-1 "topic-1"
+        topic-2 "topic.2"
+        _ (postgres/create-topic *config* topic-1 :key-type :text :value-type :text)
+        _ (postgres/create-topic *config* topic-2 :key-type :text :value-type :text)
+        selection-1 (postgres/normalize-selection topic-1)
+        selection-2a (postgres/normalize-selection topic-2)
+        selection-2b (postgres/normalize-selection {:topic topic-2 :group "nice"})]
+    (is (= true (postgres/ensure-subscription *config* selection-2a)))
+    (is (= true (postgres/ensure-subscription *config* selection-2b)))
+    (is (= {:inserted 1}
+           (postgres/insert-records *config* topic-2 [{:key "hi"
+                                                       :value "bye"
+                                                       :meta {:x "b"}}])))
+    (postgres/fetch-records! *config* selection-2a)
+    (is (match? [{:topic topic-1
+                  :subscriptions []}
+                 {:topic topic-2
+                  :subscriptions [{:group "default"
+                                   :offset 1}
+                                  {:group "nice"
+                                   :offset 0}]}]
+                (postgres/all-topics *config*)))))
