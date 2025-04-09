@@ -5,10 +5,14 @@ All notable changes to this project will be documented in this file. This change
 
 ### Added
 * Expose helper method for making deserializer xform
+* Add `topic-subscriptions` for getting summaries of subscriptions to
+  topics and their offsets.
+* Topics can be any legal Clojure identifier, not just snake_case names
 
 ### Fixed
 
 * Don't increment subscriptions sequence when ensuring
+* Topic removal correctly removes the underlying table again
 
 ## [0.3.0] - 2025-04-01
 
