@@ -102,10 +102,10 @@ ON CONFLICT (topic, group_id) DO NOTHING")
     (pg/with-transaction [conn conn]
       (honey/execute conn {:delete-from (keyword schema "subs")
                            :where [:= :topic topic]})
-      (let [[{:keys [table_name]}] (honey/execute conn {:delete-from (keyword schema "topics")
-                                                        :where [:= :topic topic]
-                                                        :returning :*})]
-        (honey/execute conn {:drop-table [:if-exists (keyword table_name)]})))))
+      (when-let [{:keys [table_name]} (first (honey/execute conn {:delete-from (keyword schema "topics")
+                                                                  :where [:= :topic topic]
+                                                                  :returning :*}))]
+        (honey/execute conn {:drop-table [:if-exists (keyword schema table_name)]})))))
 
 
 (def column-types #{:bytea :text :jsonb})
