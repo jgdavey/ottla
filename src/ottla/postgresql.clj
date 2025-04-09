@@ -119,25 +119,26 @@ ON CONFLICT (topic, group_id) DO NOTHING")
   (when-not (contains? column-types value-type)
     (throw (IllegalArgumentException. "Invalid value-type")))
   (let [normalized-topic (normalize-topic-name topic)
-        table (keyword schema (topic-table-name normalized-topic))
-        table-name (sql-entity table)
+        table (topic-table-name normalized-topic)
+        qtable (keyword schema table)
+        qtable-name (sql-entity qtable)
         trigger-fn-name (trigger-function-name schema)
         trigger-name (sql-entity (str (topic-table-name normalized-topic) "_trigger"))]
     (pg/with-connection [conn conn]
       (pg/with-transaction [conn conn]
         (let [[row] (honey/execute conn {:insert-into (keyword schema "topics")
                                          :columns [:topic :table_name :key_type :value_type]
-                                         :values [[topic (topic-table-name normalized-topic) (name key-type) (name value-type)]]
+                                         :values [[topic table (name key-type) (name value-type)]]
                                          :returning :*})]
 
-          (honey/execute conn {:create-table (keyword schema (topic-table-name normalized-topic))
+          (honey/execute conn {:create-table qtable
                                :with-columns [[:eid :bigint :primary-key :generated :always :as :identity]
                                               [:timestamp :timestamptz [:not nil] [:default [:now]]]
                                               [:meta :jsonb]
                                               [:key key-type]
                                               [:value value-type]]})
-          (pg/query conn (format brin-index-template table-name))
-          (pg/query conn (format trigger-template trigger-name table-name trigger-fn-name topic))
+          (pg/query conn (format brin-index-template qtable-name))
+          (pg/query conn (format trigger-template trigger-name qtable-name trigger-fn-name topic))
           (->topic-map row))))))
 
 (defn fetch-topic
