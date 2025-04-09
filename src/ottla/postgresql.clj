@@ -148,15 +148,16 @@ ON CONFLICT (topic, group_id) DO NOTHING")
                               :where [:= :topic topic-name]})]
     (->topic-map row)))
 
-(defn all-topics
+(defn topic-subscriptions
   [{:keys [conn schema]}]
-  (honey/execute conn {:select [:topic [[:coalesce {:select [[[:jsonb_agg
-                                                               [:jsonb_build_object
-                                                                [:inline "offset"] :cursor
-                                                                [:inline "group"] :group_id]] :sub]]
-                                                    :from [[(keyword schema "subs") :s]]
-                                                    :where [:= :s.topic :t.topic]}
-                                         [:raw "'[]'::jsonb"]] :subscriptions]]
+  (honey/execute conn {:select [:topic
+                                [[:coalesce {:select [[[:jsonb_agg
+                                                        [:jsonb_build_object
+                                                         [:inline "offset"] :cursor
+                                                         [:inline "group"] :group_id]] :sub]]
+                                             :from [[(keyword schema "subs") :s]]
+                                             :where [:= :s.topic :t.topic]}
+                                  [:raw "'[]'::jsonb"]] :subscriptions]]
                        :from [[(keyword schema "topics") :t]]}))
 
 (def commit-modes #{:manual :auto :tx-wrap})

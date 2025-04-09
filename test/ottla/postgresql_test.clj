@@ -80,7 +80,7 @@
                   (postgres/fetch-records! *config* selection)))
       (is (= [] (postgres/fetch-records! *config* selection))))))
 
-(deftest all-topics
+(deftest topic-subscriptions-test
   (let [topic-1 "topic-1"
         topic-2 "topic.2"
         _ (postgres/create-topic *config* topic-1 :key-type :text :value-type :text)
@@ -102,4 +102,4 @@
                                    :offset 1}
                                   {:group "nice"
                                    :offset 0}]}]
-                (postgres/all-topics *config*)))))
+                (postgres/topic-subscriptions *config*)))))
