@@ -1,5 +1,5 @@
 (ns ottla.postgresql-test
-  (:require [clojure.test :as test :refer [deftest is testing]]
+  (:require [clojure.test :as test :refer [deftest is testing are]]
             [ottla.test-helpers :as th :refer [*config*]]
             [ottla.postgresql :as postgres]
             [matcher-combinators.test]
@@ -10,6 +10,21 @@
 (test/use-fixtures :each
   th/config-fixture
   th/connection-fixture)
+
+(deftest legal-identifier-test
+  (are [id] (postgres/legal-identifier? id)
+    "ottla"
+    "_kinda_hidden"
+    "events1"
+    "snake_case"
+    "PascalCase"
+    "camelCase"
+    "in_the_year_2000")
+  (are [id] (not (postgres/legal-identifier? id))
+    "this_is_a_string_that_would_be_legal_except_that_it_is_greater_than_63_characters"
+    "1number"
+    "kebab-case"
+    "bang!"))
 
 (deftest topics-notify
   (let [topic "my-topic"]

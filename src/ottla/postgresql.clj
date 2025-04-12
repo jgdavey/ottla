@@ -5,9 +5,17 @@
             [ottla.serde.registry :refer [get-serializer! get-deserializer!]]
             [honey.sql]))
 
+(defn legal-identifier?
+  [^String s]
+  (boolean
+   (and s
+        (< (count s) 64)
+        (re-find #"^[a-zA-Z_][a-zA-Z0-9_]*$" s))))
+
 (defn connect-config
   [config]
   (assert (nil? (:conn config)) "config is already connected")
+  (assert (legal-identifier? (:schema config)) "schema must be a legal postgres identifier")
   (let [pool? (or (get-in config [:conn-map :pool-max-size])
                   (get-in config [:conn-map :pool-min-size]))]
     (assoc config :conn (if pool?
