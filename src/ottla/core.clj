@@ -68,9 +68,9 @@
   and commiting)
 
     - `selection` a topic (string) or a map:
-       - `:topic`    (string) name of topic to listen to
-       - `:group`    (string) name of listening group (default: \"default\")
-       - `:tx-mode`  #{:manual :auto :tx-wrap} (default: :auto)
+       - `:topic`        (string) name of topic to listen to
+       - `:group`        (string) name of listening group (default: \"default\")
+       - `:commit-mode`  #{:manual :auto :tx-wrap} (default: :auto)
     - `handler` a function that will receive a sequence of deserialized records
     - `opts` option map:
       - `:poll-ms`           (int) how often to fallback to polling
