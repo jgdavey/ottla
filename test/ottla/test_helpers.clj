@@ -2,6 +2,7 @@
   (:require [aero.core :as aero]
             [clojure.java.io :as io]
             [ottla.core :as ottla]
+            [clojure.spec.test.alpha :as st]
             [pg.core :as pg]))
 
 (def config
@@ -36,3 +37,11 @@
               *config* cfg]
       (reset-schema! *config*)
       (f))))
+
+(defn instrument-fixture
+  [f]
+  (try
+    (st/instrument)
+    (f)
+    (finally
+      (st/unstrument))))

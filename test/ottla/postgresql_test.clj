@@ -8,6 +8,7 @@
 (declare match?)
 
 (test/use-fixtures :each
+  th/instrument-fixture
   th/config-fixture
   th/connection-fixture)
 

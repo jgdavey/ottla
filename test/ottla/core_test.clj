@@ -4,17 +4,20 @@
             [ottla.serde.edn :refer [serialize-edn-bytea deserialize-bytea-edn]]
             [ottla.core :as ottla]
             [ottla.consumer :as consumer]
+            [clojure.test.check.clojure-test]
+            [clojure.spec.test.alpha]
             [pg.core :as pg]))
 
 (def max-wait-ms 150)
 
 (test/use-fixtures :each
+  th/instrument-fixture
   th/config-fixture
   th/connection-fixture)
 
 (deftest test-consumer
   (let [topic "so_good"
-        _ (ottla/add-topic! *config* topic)
+        _ (ottla/add-topic! *config* topic {:value-type :bytea})
         p (promise)
         records (atom [])
         ex (atom [])
@@ -154,7 +157,7 @@
 
 (deftest test-edn-serde
   (let [topic "so_edn"
-        _ (ottla/add-topic! *config* topic :value-type :text :key-type :bytea)
+        _ (ottla/add-topic! *config* topic {:value-type :text :key-type :bytea})
         p (promise)
         records (atom [])
         ex (atom [])
@@ -194,15 +197,15 @@
                                                {:deserialize-key deserialize-bytea-edn
                                                 :exception-handler ex-handler})]
       (ottla/append! *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn-bytea
-                                                         :serialize-value serialize-edn-bytea})
+                                                          :serialize-value serialize-edn-bytea})
       (is (not= :timed-out (deref r1 max-wait-ms :timed-out)))
       (is (= :running (consumer/status consumer)))
       (ottla/append! *config* topic [{:key 2 :value 42}] {:serialize-key serialize-edn-bytea
-                                                         :serialize-value serialize-edn-bytea})
+                                                          :serialize-value serialize-edn-bytea})
       (is (not= :timed-out (deref ex max-wait-ms :timed-out)))
       (is (= :running (consumer/status consumer)))
       (ottla/append! *config* topic [{:key 3 :value 42}] {:serialize-key serialize-edn-bytea
-                                                         :serialize-value serialize-edn-bytea})
+                                                          :serialize-value serialize-edn-bytea})
       (is (not= :timed-out (deref r3 max-wait-ms :timed-out)))
       (is (= :running (consumer/status consumer))))))
 
@@ -220,7 +223,7 @@
                                                handler
                                                {:exception-handler ex-handler})]
       (ottla/append! *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn-bytea
-                                                         :serialize-value serialize-edn-bytea})
+                                                          :serialize-value serialize-edn-bytea})
       (is (= :running (consumer/status consumer)))
       (is (not= :timed-out (deref ex max-wait-ms :timed-out)))
       (Thread/sleep 10)
