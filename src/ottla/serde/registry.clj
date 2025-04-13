@@ -29,10 +29,26 @@
     :else
     (throw (IllegalArgumentException. "data-type must be keyword or function"))))
 
+(defn- ensure-bytea [obj]
+  (cond
+    (nil? obj) obj
+    (bytes? obj) obj
+    :else (throw (ex-info
+                  "Object not a byte array. Convert or provide a serialize function"
+                  {:object obj}))))
+
 (defn get-serializer!
   [data-type col-type]
-  (get! :serializer data-type col-type))
+  (if data-type
+    (get! :serializer data-type col-type)
+    (case col-type
+      :jsonb identity       ;; let pg2 do its thing
+      :text #(some-> % str) ;; ensure string
+      :bytea ensure-bytea)))
 
 (defn get-deserializer!
   [data-type col-type]
-  (get! :deserializer data-type col-type))
+  (if data-type
+    (get! :deserializer data-type col-type)
+    identity ;; Assume the user knows what to do
+    ))

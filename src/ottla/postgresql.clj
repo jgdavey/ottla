@@ -185,8 +185,6 @@ ON CONFLICT (topic, group_id) DO NOTHING")
    topic
    records
    & {:keys [serialize-key serialize-value]
-      :or {serialize-key identity
-           serialize-value identity}
       :as opts}]
   (let [{:keys [table-name key-type value-type]} (if (map? topic)
                                                    topic
