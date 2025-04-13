@@ -4,8 +4,8 @@
             [ottla.serde.edn :refer [serialize-edn-bytea deserialize-bytea-edn]]
             [ottla.core :as ottla]
             [ottla.consumer :as consumer]
-            [clojure.test.check.clojure-test]
-            [clojure.spec.test.alpha]
+            [ottla.specs]
+            [clojure.spec.gen.alpha :as gen]
             [pg.core :as pg]))
 
 (def max-wait-ms 150)
@@ -228,3 +228,11 @@
       (is (not= :timed-out (deref ex max-wait-ms :timed-out)))
       (Thread/sleep 10)
       (is (not= :running (consumer/status consumer))))))
+
+(deftest add-topic-spec-test
+  (ottla/with-connected-config [config {:conn-map th/conn-params
+                                        :schema "spec_run"}]
+    (pg/execute (:conn config) "drop schema if exists spec_run cascade")
+    (ottla/init! config)
+    (th/check-sym `ottla/add-topic! {:gen {:ottla/config #(gen/return config)}
+                                     :clojure.spec.test.check/opts {:num-tests 3}})))
