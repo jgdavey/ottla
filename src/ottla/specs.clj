@@ -7,6 +7,9 @@
 
 (set! *warn-on-reflection* true)
 
+(def idfn (s/with-gen fn?
+            #(gen/return identity)))
+
 (defn- sql-identifier-gen []
   (gen/fmap (fn [[c1 rest]]
               (apply str c1 rest))
@@ -93,13 +96,13 @@
                                 :opt-un [:ottla.selection/group
                                          :ottla.selection/tx-mode]))
 
-(s/def :ottla.consumer/poll-ms int?)
-(s/def :ottla.consumer/await-close-ms int?)
-(s/def :ottla.consumer/listen-ms int?)
+(s/def :ottla.consumer/poll-ms pos-int?)
+(s/def :ottla.consumer/await-close-ms pos-int?)
+(s/def :ottla.consumer/listen-ms pos-int?)
 (s/def :ottla.consumer/deserialize-key serialize-spec)
 (s/def :ottla.consumer/deserialize-value serialize-spec)
-(s/def :ottla.consumer/xform fn?)
-(s/def :ottla.consumer/exception-handler fn?)
+(s/def :ottla.consumer/xform idfn)
+(s/def :ottla.consumer/exception-handler idfn)
 
 
 (def ^:private consumer-opt-keys
