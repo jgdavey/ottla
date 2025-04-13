@@ -3,6 +3,12 @@ All notable changes to this project will be documented in this file. This change
 
 ## [Unreleased]
 
+### Added
+* Add specs for core api
+
+### Changed
+* Use column-specific default serializers (rather than always identity)
+
 ## [0.3.1] - 2025-04-08
 
 ### Added
