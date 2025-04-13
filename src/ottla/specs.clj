@@ -33,8 +33,10 @@
          (dissoc (get args :config) :conn)
          (dissoc ret :conn))))
 
-(s/def :ottla.topic/topic string?)
-(s/def :ottla.topic/table-name string?)
+(s/def :ottla.topic/topic (s/and string?
+                                 #(pos? (count %))))
+(s/def :ottla.topic/table-name (s/and string?
+                                      #(pos? (count %))))
 (s/def :ottla.topic/key-type #{:text :bytea :jsonb})
 (s/def :ottla.topic/value-type #{:text :bytea :jsonb})
 
@@ -53,22 +55,33 @@
   :args (s/cat :config :ottla/config
                :ottla.topic :ottla.topic/topic))
 
-(s/def :ottla.append/serialize-key (s/or :kw keyword?
-                                         :fn fn?))
-(s/def :ottla.append/serialize-value (s/or :kw keyword?
-                                           :fn fn?))
+(def serialize-spec (s/with-gen
+                      (s/or :kw keyword?
+                            :fn fn?)
+                      #(s/gen #{:string :json :edn})))
+
+(s/def :ottla.append/serialize-key serialize-spec)
+(s/def :ottla.append/serialize-value serialize-spec)
+
+(s/def :ottla.record/key any?)
+(s/def :ottla.record/value any?)
+(s/def :ottla.record/meta (s/nilable (s/map-of keyword? any?)))
+
+(s/def :ottla/record (s/keys :req-un [:ottla.record/key
+                                      :ottla.record/value]
+                             :opt-un [:ottla.record/meta]))
 
 (s/fdef ottla/append!
   :args (s/cat :config :ottla/config
                :topic :ottla.topic/topic
-               :records (s/coll-of any?)
+               :records (s/coll-of :ottla/record :min-count 1)
                :opts (s/keys* :opt-un [:ottla.append/serialize-key
                                        :ottla.append/serialize-value])))
 
 (s/fdef ottla/append-one!
   :args (s/cat :config :ottla/config
                :topic :ottla.topic/topic
-               :record any?
+               :record :ottla/record
                :opts (s/keys* :opt-un [:ottla.append/serialize-key
                                        :ottla.append/serialize-value])))
 
@@ -83,21 +96,26 @@
 (s/def :ottla.consumer/poll-ms int?)
 (s/def :ottla.consumer/await-close-ms int?)
 (s/def :ottla.consumer/listen-ms int?)
-(s/def :ottla.consumer/deserialize-key (s/or :kw keyword?
-                                             :fn fn?))
-(s/def :ottla.consumer/deserialize-value (s/or :kw keyword?
-                                               :fn fn?))
+(s/def :ottla.consumer/deserialize-key serialize-spec)
+(s/def :ottla.consumer/deserialize-value serialize-spec)
 (s/def :ottla.consumer/xform fn?)
 (s/def :ottla.consumer/exception-handler fn?)
 
-(s/def :ottla/consumer-opts
-  (s/keys* :opt-un [:ottla.consumer/poll-ms
-                    :ottla.consumer/await-close-ms
-                    :ottla.consumer/listen-ms
-                    :ottla.consumer/deserialize-key
-                    :ottla.consumer/deserialize-value
-                    :ottla.consumer/xform
-                    :ottla.consumer/exception-handler]))
+
+(def ^:private consumer-opt-keys
+  [:ottla.consumer/poll-ms
+   :ottla.consumer/await-close-ms
+   :ottla.consumer/listen-ms
+   :ottla.consumer/deserialize-key
+   :ottla.consumer/deserialize-value
+   :ottla.consumer/xform
+   :ottla.consumer/exception-handler])
+
+(eval
+ `(s/def :ottla/consumer-opts
+    (s/alt
+     :kwargs (s/keys* :opt-un ~consumer-opt-keys)
+     :map (s/keys :opt-un ~consumer-opt-keys))))
 
 (s/fdef ottla/start-consumer
   :args (s/cat :config :ottla/config
