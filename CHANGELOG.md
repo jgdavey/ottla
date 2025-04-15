@@ -4,14 +4,21 @@ All notable changes to this project will be documented in this file. This change
 ## [Unreleased]
 
 ### Added
+
 * Add specs for core api
 
 ### Changed
+
 * Use column-specific default serializers (rather than always identity)
+
+### Fixed
+
+* Remove reflection of Thread/sleep (via a function)
 
 ## [0.3.1] - 2025-04-08
 
 ### Added
+
 * Expose helper method for making deserializer xform
 * Add `topic-subscriptions` for getting summaries of subscriptions to
   topics and their offsets.
@@ -41,14 +48,17 @@ All notable changes to this project will be documented in this file. This change
 ## [0.2.0] - 2025-03-30
 
 ### Changed
+
 * (BREAKING) Change `:val-type` to `:value-type` in parameters for consistency
 
 ## [0.1.1] - 2025-03-24
 
 ### Changed
+
 * (BREAKING) Change `ottla.core/append` to `ottla.core/append!` to make naming convention.
 
 ### Added
+
 * Add some documentation
 * Improve build system
 

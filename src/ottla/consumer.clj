@@ -14,6 +14,11 @@
             ArrayBlockingQueue]
            #_[org.pg Connection]))
 
+(set! *warn-on-reflection* true)
+
+(defn sleep [^long ms]
+  (Thread/sleep ms))
+
 (defprotocol IShutdown
   (graceful-shutdown [_])
   (shutdown-await [_ await-time-ms])
@@ -131,7 +136,7 @@
                                              (println "Exception while listening: " (class ex) (ex-message ex))
                                              true))]
                             (when-not bail?
-                              (Thread/sleep listen-ms)
+                              (sleep listen-ms)
                               (recur))))
                         (finally
                           (pg/unlisten c topic)))))
