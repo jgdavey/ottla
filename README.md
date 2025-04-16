@@ -46,6 +46,21 @@ topics can be created with `add-topic!`:
   (ottla/add-topic! config "my-new-topic"))
 ```
 
+When creating a topic, you choose the underlying data type of the key
+and value columns for the backing store with the `:key-type` and
+`:value-type` options. The default is binary (`bytea` column).
+
+Please note that not all columns types will be compatible with every
+serializer. Below is the compatability chart for the built-in
+serializers:
+
+| serializer, type | bytea | text | jsonb |
+|------------------|-------|------|-------|
+| `:edn`           | [x]   | [x]  |       |
+| `:json`          | [x]   | [x]  | [x]   |
+| `:string`        | [x]   | [x]  |       |
+
+
 ### Removing a topic
 
 After ottla has been initialized with the `ottla/init!` operation,
@@ -68,7 +83,14 @@ To add to a topic's log, call `append` with records, which are maps like the fol
 - `:value` - data value
 - `:meta` - A map of optional metadata (analogous to Kafka headers)
 
-The key are value are stored in binary format, so a key and/or value
+There are several built-in serializers that can be applied to the key
+and value. The key and value do not need to be the same column type or
+use the same serializer.
+
+The built-in serializers can be referenced by keyword instead of a
+function. `:string`, `:json`, or `:edn`
+
+When the key are value are stored in binary format, a key and/or value
 serializer must be provided if the key or value are not already binary
 data. A serializer is a function that takes a key or value and returns
 a binary representation that can later be deserialized by consumers.
@@ -97,6 +119,9 @@ So, assuming these serializing functions, here's how we might insert edn data in
                [{:value {:oh "cool"}} ,,,]
                {:serialize-value serialize-edn})
 ```
+
+Note that this is already provided as a built-in `:edn` serializer,
+but the above is for demonstration.
 
 ### Consumers
 
