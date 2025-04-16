@@ -1,5 +1,7 @@
 # Change Log
-All notable changes to this project will be documented in this file. This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
+
+All notable changes to this project will be documented in this file.
+This change log follows the conventions of [keepachangelog.com](http://keepachangelog.com/).
 
 ## [Unreleased]
 
@@ -71,4 +73,3 @@ Initial public release
 [0.3.0]: https://github.com/joshuadavey/ottla/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/joshuadavey/ottla/compare/0.1.1...0.2.0
 [0.1.1]: https://github.com/joshuadavey/ottla/compare/0.1.0...0.1.1
-
