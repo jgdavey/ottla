@@ -5,12 +5,15 @@ This change log follows the conventions of [keepachangelog.com](http://keepachan
 
 ## [Unreleased]
 
+## [0.3.2] - 2025-05-17
+
 ### Added
 
 * Add specs for core api
 
 ### Changed
 
+* Update pg2 dependency
 * Use column-specific default serializers (rather than always identity)
 
 ### Fixed
