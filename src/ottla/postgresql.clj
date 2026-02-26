@@ -149,13 +149,39 @@ ON CONFLICT (topic, group_id) DO NOTHING")
           (pg/query conn (format trigger-template trigger-name qtable-name trigger-fn-name topic))
           (->topic-map row))))))
 
-(defn fetch-topic
+(defn maybe-fetch-topic
   [{:keys [conn schema]} topic-name]
-  (let [[row] (honey/execute conn
-                             {:select [:topic :table_name :key_type :value_type]
-                              :from (keyword schema "topics")
-                              :where [:= :topic topic-name]})]
-    (->topic-map row)))
+  (some->
+   (honey/execute conn
+                  {:select [:topic :table_name :key_type :value_type]
+                   :from (keyword schema "topics")
+                   :where [:= :topic topic-name]})
+   first
+   ->topic-map))
+
+(defn fetch-topic
+  [config topic-name]
+  (if-let [found (maybe-fetch-topic config topic-name)]
+    found
+    (throw (IllegalArgumentException. (str "No such topic: " topic-name)))))
+
+(defn ensure-topic
+  "Idempotent version of fetch or create"
+  [{:keys [conn] :as config} topic-name & {:keys [key-type value-type] :as opts
+                                           :or {key-type :bytea
+                                                value-type :bytea}}]
+  (pg/with-connection [conn conn]
+    (pg/with-transaction [conn conn]
+      (let [config (assoc config :conn conn)]
+        (if-let [found (maybe-fetch-topic config topic-name)]
+          (let [passed {:topic topic-name
+                        :key-type key-type
+                        :value-type value-type}
+                stored (select-keys found [:topic :key-type :value-type])]
+            (if (= stored passed)
+              found
+              (throw (ex-info "Topic definition differs from stored" {:stored stored, :passed passed}))))
+          (create-topic config topic-name opts))))))
 
 (defn topic-subscriptions
   [{:keys [conn schema]}]

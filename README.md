@@ -125,7 +125,10 @@ but the above is for demonstration.
 
 ### Consumers
 
-Consumers are designed to be run in a managed `Consumer` object, which can be started like this:
+Consumers asynchronously listen for messages on a topic and run a
+handler to deal with them, updating the subscription afterwards.
+Consumersare designed to be run in a managed `Consumer` object, which
+can be started like this:
 
 ```clojure
 (ottla/start-consumer config {:topic "my-new-topic"} handler {:deserialize-value deserialize-edn})

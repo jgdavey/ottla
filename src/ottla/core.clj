@@ -54,6 +54,13 @@
   [config topic & {:as opts}]
   (postgres/create-topic config (name topic) opts))
 
+(defn ensure-topic
+  "Find or create a new topic idempotently. This takes the same
+  arguments as `add-topic!` but will only attempt to create the topic
+  if it doesn't already exist"
+  [config topic & {:as opts}]
+  (postgres/ensure-topic config (name topic) opts))
+
 (defn remove-topic!
   "Remove a topic. Warning: permanently and immediately removes all records for the topic.
     - `config`   a connected config map

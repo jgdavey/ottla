@@ -229,6 +229,17 @@
       (Thread/sleep 10)
       (is (not= :running (consumer/status consumer))))))
 
+(deftest test-ensure-topic
+  (let [topic "theproblem"
+        types  {:key-type :text :value-type :jsonb}
+        expected (merge {:topic topic
+                         :table-name (str "log__" topic)}
+                        types)]
+    (is (= expected (ottla/ensure-topic *config* topic types)))
+    (is (= expected (ottla/ensure-topic *config* topic types)))
+    (is (thrown-with-msg? Exception #"definition differs"
+                          (ottla/ensure-topic *config* topic {:key-type :jsonb})))))
+
 (deftest add-topic-spec-test
   (ottla/with-connected-config [config {:conn-map th/conn-params
                                         :schema "spec_run"}]
