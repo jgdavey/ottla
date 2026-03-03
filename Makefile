@@ -26,6 +26,9 @@ $(OUTPUT_JAR): $(JAR_DEPS)
 deploy: $(OUTPUT_JAR)
 	clojure -T:build deploy
 
+pom.xml: deps.edn
+	clojure -Spom
+
 test:
 	bin/kaocha
 

@@ -30,6 +30,16 @@
       <artifactId>clojure</artifactId>
       <version>1.12.4</version>
     </dependency>
+    <dependency>
+      <groupId>com.github.igrishaev</groupId>
+      <artifactId>pg2-core</artifactId>
+      <version>0.1.44</version>
+    </dependency>
+    <dependency>
+      <groupId>com.github.igrishaev</groupId>
+      <artifactId>pg2-honey</artifactId>
+      <version>0.1.44</version>
+    </dependency>
   </dependencies>
   <build>
     <sourceDirectory>src</sourceDirectory>
@@ -38,10 +48,6 @@
     <repository>
       <id>clojars</id>
       <url>https://repo.clojars.org/</url>
-    </repository>
-    <repository>
-      <id>sonatype</id>
-      <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
     </repository>
   </repositories>
   <distributionManagement>
