@@ -5,6 +5,16 @@ This change log follows the conventions of [keepachangelog.com](http://keepachan
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-03-02
+
+### Added
+
+* New function `ottla.core/ensure-topic` for idempotent topic creation
+
+### Changed
+
+* Update pg2 dependency
+
 ## [0.3.2] - 2025-05-17
 
 ### Added
@@ -71,7 +81,9 @@ This change log follows the conventions of [keepachangelog.com](http://keepachan
 
 Initial public release
 
-[Unreleased]: https://github.com/joshuadavey/ottla/compare/0.3.1...HEAD
+[Unreleased]: https://github.com/joshuadavey/ottla/compare/0.3.3...HEAD
+[0.3.3]: https://github.com/joshuadavey/ottla/compare/0.3.2...0.3.3
+[0.3.2]: https://github.com/joshuadavey/ottla/compare/0.3.1...0.3.2
 [0.3.1]: https://github.com/joshuadavey/ottla/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/joshuadavey/ottla/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/joshuadavey/ottla/compare/0.1.1...0.2.0
