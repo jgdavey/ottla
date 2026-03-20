@@ -229,6 +229,14 @@
       (Thread/sleep 10)
       (is (not= :running (consumer/status consumer))))))
 
+(deftest test-list-topics
+  (is (= [] (ottla/list-topics *config*)))
+  (ottla/add-topic! *config* "aaa" {:key-type :text :value-type :jsonb})
+  (ottla/add-topic! *config* "zzz" {:key-type :bytea :value-type :bytea})
+  (is (= [{:topic "aaa" :key-type :text :value-type :jsonb}
+          {:topic "zzz" :key-type :bytea :value-type :bytea}]
+         (ottla/list-topics *config*))))
+
 (deftest test-ensure-topic
   (let [topic "theproblem"
         types  {:key-type :text :value-type :jsonb}

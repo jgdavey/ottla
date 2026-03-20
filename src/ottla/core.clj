@@ -70,6 +70,12 @@
   [config topic & {:as opts}]
   (postgres/ensure-topic config (name topic) opts))
 
+(defn list-topics
+  "Returns a vector of all topics in the ottla schema, ordered by name.
+  Each topic is a map with :topic, :key-type, and :value-type."
+  [config]
+  (postgres/list-topics config))
+
 (defn remove-topic!
   "Remove a topic. Warning: permanently and immediately removes all records for the topic.
     - `config`   a connected config map

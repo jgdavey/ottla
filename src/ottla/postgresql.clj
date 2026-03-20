@@ -153,6 +153,14 @@ ON CONFLICT (topic, group_id) DO NOTHING")
           (pg/query conn (format trigger-template trigger-name qtable-name trigger-fn-name topic))
           (->topic-map row))))))
 
+(defn list-topics
+  [{:keys [conn schema]}]
+  (mapv (comp #(dissoc % :table-name) ->topic-map)
+        (honey/execute conn
+                       {:select [:topic :table_name :key_type :value_type]
+                        :from (keyword schema "topics")
+                        :order-by [[:topic :asc]]})))
+
 (defn maybe-fetch-topic
   [{:keys [conn schema]} topic-name]
   (some->

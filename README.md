@@ -71,6 +71,14 @@ column types, which guards against accidental schema drift:
   (ottla/ensure-topic config "my-new-topic" :value-type :jsonb))
 ```
 
+To list all existing topics:
+
+```clojure
+(ottla/with-connected-config [config {,,,}]
+  (ottla/list-topics config))
+;; => [{:topic "my-new-topic" :key-type :bytea :value-type :jsonb} ,,,]
+```
+
 ### Removing a topic
 
 After ottla has been initialized with the `ottla/init!` operation,
