@@ -61,6 +61,16 @@ serializers:
 | `:string`        | [x]   | [x]  |       |
 
 
+For production use, `ensure-topic` is often preferable to `add-topic!` — it
+returns the existing topic if it already exists with the same column types,
+or creates it if it doesn't. It throws if the topic exists with different
+column types, which guards against accidental schema drift:
+
+```clojure
+(ottla/with-connected-config [config {,,,}]
+  (ottla/ensure-topic config "my-new-topic" :value-type :jsonb))
+```
+
 ### Removing a topic
 
 After ottla has been initialized with the `ottla/init!` operation,
@@ -77,7 +87,7 @@ be removed immediately.
 ### Producing data
 
 
-To add to a topic's log, call `append` with records, which are maps like the following:
+To add to a topic's log, call `append!` with records, which are maps like the following:
 
 - `:key` - data key
 - `:value` - data value
@@ -123,11 +133,19 @@ So, assuming these serializing functions, here's how we might insert edn data in
 Note that this is already provided as a built-in `:edn` serializer,
 but the above is for demonstration.
 
+To insert a single record, use `append-one!`:
+
+```clojure
+(ottla/append-one! config "my-new-topic"
+                   {:key "user-123" :value {:event "login"}}
+                   {:serialize-key :string :serialize-value :json})
+```
+
 ### Consumers
 
 Consumers asynchronously listen for messages on a topic and run a
 handler to deal with them, updating the subscription afterwards.
-Consumersare designed to be run in a managed `Consumer` object, which
+Consumers are designed to be run in a managed `Consumer` object, which
 can be started like this:
 
 ```clojure
@@ -135,15 +153,35 @@ can be started like this:
 ```
 
 This will spin up and return a `Consumer` that should be kept around
-until read to stop with `(.close consumer)`. Consumers will usually be
+until ready to stop with `(.close consumer)`. Consumers will usually be
 long-lived and can be managed with whatever component lifecycle
 framework you choose, but can also be used with `with-open` for
 short-lived consumers.
 
-A Consumer will maintain 2 database connections: one solely for
-listening for real time notifications from the database, and one for
+```clojure
+;; Graceful shutdown — waits up to await-close-ms for in-flight work to finish
+(.close consumer)
+
+;; Or use with-open for short-lived consumers
+(with-open [consumer (ottla/start-consumer config {:topic "my-new-topic"} handler opts)]
+  (Thread/sleep 5000))
+```
+
+A Consumer maintains 2 database connections: one solely for
+listening for real-time notifications from the database, and one for
 periodic fetching of records. This latter connection can be reused in
 handlers.
+
+#### Consumer groups
+
+The `:group` key in the selection map identifies an independent consumer
+group. Multiple groups can read the same topic and each maintains its own
+offset, so they receive all records independently:
+
+```clojure
+(ottla/start-consumer config {:topic "my-new-topic" :group "indexer"} handler opts)
+(ottla/start-consumer config {:topic "my-new-topic" :group "notifier"} handler opts)
+```
 
 A handler is a function of 2 args, the ottla connected config and a
 vector of records. It will be called on its own Thread, but will
@@ -161,11 +199,42 @@ The options arg accepts the following keys:
 - `:deserialize-value` - a deserializer for the record values
 - `:exception-handler` - a function that will receive any uncaught
   Exception object (see below)
-- `:xform` - optional transducer for records (after deserialize)
+- `:xform` - optional transducer applied to records after deserialization
+- `:commit-mode` - controls when the consumer offset is advanced:
+  - `:auto` (default) — commits after each successful batch fetch, before calling the handler
+  - `:tx-wrap` — wraps the fetch and handler call in a single transaction; commits only if the handler returns without throwing
+  - `:manual` — never commits automatically; use `commit-offset!` in your handler
 
 Uncaught exceptions thrown either in the handler, any deserializer, or
 from fetching will be caught and fed to the `exception-handler`, which
 by default just prints the exception, but could instead log it or in
-some other way act on it. If this exception-handler returns the
-keyword `:ottla/shutdown`, the Consumer will begin its shutdown
-process.
+some other way act on it. If the exception-handler returns
+`ottla/shutdown` (i.e. `:ottla/shutdown`), the Consumer will begin its
+shutdown process.
+
+#### Handler performance
+
+The handler runs on a single worker thread. If the handler is slow, work
+will queue up and LISTEN/NOTIFY-triggered fetches may be dropped (the
+worker uses a bounded queue with a discard-oldest policy). Long-running
+work should be handed off to a separate thread pool inside the handler.
+
+#### Delivery guarantees
+
+Ottla provides **at-least-once** delivery. Records will not be skipped,
+but may be delivered more than once if the consumer crashes after fetching
+but before committing. The `:tx-wrap` commit mode minimizes this window by
+committing the offset within the same transaction as the handler.
+
+#### Replaying records
+
+To replay a topic from the beginning or from a specific point, reset the
+consumer group's offset before starting (or while stopped):
+
+```clojure
+;; Replay everything from the start
+(ottla/reset-consumer-offset! config {:topic "my-new-topic" :group "default"} 0)
+
+;; Replay from a specific record id
+(ottla/reset-consumer-offset! config {:topic "my-new-topic" :group "default"} 42)
+```

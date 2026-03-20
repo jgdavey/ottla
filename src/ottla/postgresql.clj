@@ -27,6 +27,10 @@
   (first (honey.sql/format (keyword x))))
 
 (def trigger-function-template
+  ;; currval() is session-local and returns the last value obtained from nextval()
+  ;; in the current session. For a statement-level AFTER INSERT trigger this is the
+  ;; max eid of the just-inserted batch, which is correct. It would be stale only if
+  ;; the trigger fired with zero rows inserted, which cannot happen with a plain INSERT.
   "CREATE OR REPLACE FUNCTION %s() RETURNS TRIGGER AS $$
 DECLARE
     newoffset bigint;
@@ -123,9 +127,9 @@ ON CONFLICT (topic, group_id) DO NOTHING")
                                   :or {key-type :bytea
                                        value-type :bytea}}]
   (when-not (contains? column-types key-type)
-    (throw (IllegalArgumentException. "Invalid key-type")))
+    (throw (IllegalArgumentException. (str "Invalid key-type " key-type "; must be one of " column-types))))
   (when-not (contains? column-types value-type)
-    (throw (IllegalArgumentException. "Invalid value-type")))
+    (throw (IllegalArgumentException. (str "Invalid value-type " value-type "; must be one of " column-types))))
   (let [normalized-topic (normalize-topic-name topic)
         table (topic-table-name normalized-topic)
         qtable (keyword schema table)
@@ -166,7 +170,9 @@ ON CONFLICT (topic, group_id) DO NOTHING")
     (throw (IllegalArgumentException. (str "No such topic: " topic-name)))))
 
 (defn ensure-topic
-  "Idempotent version of fetch or create"
+  "Fetch or create a topic. Returns the existing topic if it already exists
+  with the same key-type and value-type. Throws if the topic exists but was
+  created with different column types."
   [{:keys [conn] :as config} topic-name & {:keys [key-type value-type] :as opts
                                            :or {key-type :bytea
                                                 value-type :bytea}}]

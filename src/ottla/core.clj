@@ -8,6 +8,10 @@
            [ottla.consumer Consumer]))
 
 (defn make-config
+  "Build a config map for use with ottla functions.
+    - `conn-map` a pg2 connection map (host, port, database, user, password, etc.)
+    - `opts`     optional keyword args:
+       - `:schema` the PostgreSQL schema name to use (default: \"ottla\")"
   [conn-map & {:as opts}]
   (merge {:schema "ottla"}
          opts
@@ -16,6 +20,10 @@
 (def shutdown :ottla/shutdown)
 
 (defmacro with-connected-config
+  "Ensures `config` has an open database connection for the duration of `body`,
+  binding the connected config to `sym`. If the config is already connected,
+  the existing connection is used as-is. Otherwise, a new connection is opened
+  and automatically closed when `body` completes (even on exception)."
   [[sym config] & body]
   `(let* [config# ~config]
      (if (:conn config#)
@@ -55,9 +63,10 @@
   (postgres/create-topic config (name topic) opts))
 
 (defn ensure-topic
-  "Find or create a new topic idempotently. This takes the same
-  arguments as `add-topic!` but will only attempt to create the topic
-  if it doesn't already exist"
+  "Find or create a topic. This takes the same arguments as `add-topic!`.
+  If the topic already exists with the same key-type and value-type, returns
+  it unchanged. Throws if the topic exists but was created with different
+  column types."
   [config topic & {:as opts}]
   (postgres/ensure-topic config (name topic) opts))
 
@@ -70,9 +79,9 @@
 
 (defn start-consumer
   "Start a consumer process. This will spin up several worker threads to
-  handle the machinery of listinging to the topic, and at least 2
-  database connections (one for NOTIFY/LISTING and one for fetching
-  and commiting)
+  handle the machinery of listening to the topic, and at least 2
+  database connections (one for LISTEN/NOTIFY and one for fetching
+  and committing)
 
     - `selection` a topic (string) or a map:
        - `:topic`        (string) name of topic to listen to
@@ -106,7 +115,7 @@
 
   The selection must match the what was passed to `start-consumer`.
 
-  Note: when using tx-mode `:auto` and `:tx-wrap`, this is handled
+  Note: when using commit-mode `:auto` and `:tx-wrap`, this is handled
   automatically."
   [config selection record]
   (postgres/commit-offset! config selection (:eid record)))
