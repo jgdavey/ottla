@@ -185,7 +185,9 @@ offset, so they receive all records independently:
 
 A handler is a function of 2 args, the ottla connected config and a
 vector of records. It will be called on its own Thread, but will
-receive records in order.
+receive records in order. Each invocation may receive up to `:max-records`
+records at once, so handlers should be written to process a variable-sized
+batch rather than assuming a single record.
 
 The options arg accepts the following keys:
 
@@ -195,6 +197,7 @@ The options arg accepts the following keys:
 - `:await-close-ms` - when closing the Consumer, how long to wait for
   all threads to completely finish their work before shutting it down
   forcibly.
+- `:max-records` - maximum number of records to fetch per batch (default 100)
 - `:deserialize-key` - a deserializer for the record keys
 - `:deserialize-value` - a deserializer for the record values
 - `:exception-handler` - a function that will receive any uncaught

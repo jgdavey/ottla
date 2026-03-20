@@ -96,6 +96,7 @@
       - `:xform`             (fn) transducer for post-deserialization processing
       - `:deserialize-key`   Key deserializer. Keyword or function
       - `:deserialize-value` Value deserializer. Keyword or function
+      - `:max-records`       (int) max records fetched per batch (default 100)
 
   Deserializers do the opposite of serializers, turning a serialized
   value into a deserialized one. The same built-ins are available as

@@ -78,7 +78,8 @@
      (let [config (assoc config :conn conn)
            records (postgres/fetch-records* config selection)]
        (when (seq records)
-         (handler config records))))))
+         (handler config records))
+       (count records)))))
 
 (defn start-consumer
   ^Consumer
@@ -86,19 +87,20 @@
    {:keys [topic] :as basic-selection}
    handler
    {:keys [poll-ms deserialize-key deserialize-value xform
-           exception-handler await-close-ms listen-ms]
+           exception-handler await-close-ms listen-ms max-records]
     :or {poll-ms 15000
          await-close-ms 1000
          listen-ms 2
          exception-handler default-exception-handler
-         xform identity}
+         xform identity
+         max-records 100}
     :as opts}]
   (assert (map? conn-map) "conn-map must be a connection map")
   (assert (string? topic) "topic is required")
   (let [{:keys [conn] :as config} (postgres/connect-config config)
         deserialized (postgres/deserializer-xf config topic opts)
         xf (comp deserialized xform)
-        selection (assoc (postgres/normalize-selection basic-selection) :xf xf)
+        selection (assoc (postgres/normalize-selection basic-selection) :xf xf :limit max-records)
         _ (assert (contains? postgres/commit-modes
                              (:commit-mode selection)) "unknown commit-mode")
         _ (postgres/ensure-subscription config selection)
@@ -109,38 +111,42 @@
                                     (Executors/unconfigurableExecutorService))
         ^ExecutorService listener (Executors/newSingleThreadExecutor)
         consumer (Consumer. poller worker listener conn await-close-ms)
-        do-work-fn (fn* [max] (.execute worker
-                                        (fn* []
-                                             (try
-                                               (fetch-and-handle config (assoc selection :max max) handler)
-                                               (catch Exception ex
-                                                 (let [ex-result (exception-handler ex)]
-                                                   (case ex-result
-                                                     :ottla/shutdown (graceful-shutdown consumer)
-                                                     nil)))))))
+        do-work-fn (fn* do-work-fn [max]
+                        (.execute worker
+                                  (fn* []
+                                       (try
+                                         (let [num-handled (fetch-and-handle config (assoc selection :max max) handler)]
+                                           (when (= max-records num-handled)
+                                             ;; Immediate re-queue (like a poll) since there's likely more
+                                             (do-work-fn max)))
+                                         (catch Exception ex
+                                           (let [ex-result (exception-handler ex)]
+                                             (case ex-result
+                                               :ottla/shutdown (graceful-shutdown consumer)
+                                               nil)))))))
 
         _ (.scheduleAtFixedRate poller (fn* [] (do-work-fn nil)) 0 poll-ms TimeUnit/MILLISECONDS)
         listening? (promise)
         listen-fn (fn* []
-                    (pg/with-connection [c conn-map]
-                      (try
-                        (pg/listen c topic)
-                        (deliver listening? true)
-                        (loop []
-                          (pg/poll-notifications c)
-                          (let [bail? (try (doseq [{:keys [message]} (pg/drain-notifications c)]
-                                             (do-work-fn (try (parse-long message)
-                                                              (catch NumberFormatException _ nil))))
-                                           (catch org.pg.error.PGErrorIO _
-                                             (Thread/interrupted))
-                                           (catch Exception ex
-                                             (exception-handler ex)
-                                             true))]
-                            (when-not bail?
-                              (sleep listen-ms)
-                              (recur))))
-                        (finally
-                          (pg/unlisten c topic)))))
+                       (pg/with-connection [c conn-map]
+                         (try
+                           (pg/listen c topic)
+                           (deliver listening? true)
+                           (loop []
+                             (pg/poll-notifications c)
+                             (let [bail? (try (doseq [{:keys [message]} (pg/drain-notifications c)]
+                                                (do-work-fn (try (parse-long message)
+                                                                 (catch NumberFormatException _ nil))))
+                                              (catch org.pg.error.PGErrorIO _
+                                                (Thread/interrupted))
+                                              (catch Exception ex
+                                                (exception-handler ex)
+                                                true))]
+                               (when-not bail?
+                                 (sleep listen-ms)
+                                 (recur))))
+                           (finally
+                             (pg/unlisten c topic)))))
         _ (.submit listener ^Callable listen-fn)]
     (when-not (deref listening? 100 false)
       (println "Warning: Not listening after 100 ms"))
