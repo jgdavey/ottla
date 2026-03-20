@@ -129,11 +129,12 @@
                         (loop []
                           (pg/poll-notifications c)
                           (let [bail? (try (doseq [{:keys [message]} (pg/drain-notifications c)]
-                                             (do-work-fn (parse-long message)))
+                                             (do-work-fn (try (parse-long message)
+                                                              (catch NumberFormatException _ nil))))
                                            (catch org.pg.error.PGErrorIO _
                                              (Thread/interrupted))
                                            (catch Exception ex
-                                             (println "Exception while listening: " (class ex) (ex-message ex))
+                                             (exception-handler ex)
                                              true))]
                             (when-not bail?
                               (sleep listen-ms)
