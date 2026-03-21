@@ -193,6 +193,11 @@ long-lived and can be managed with whatever component lifecycle
 framework you choose, but can also be used with `with-open` for
 short-lived consumers.
 
+If no subscription exists for the given topic and group, one is created
+automatically at startup with the cursor set to 0, so the consumer will
+read from the beginning of the topic. To start from a specific point,
+call `reset-consumer-offset!` before starting the consumer.
+
 ```clojure
 ;; Graceful shutdown — waits up to await-close-ms for in-flight work to finish
 (.close consumer)

@@ -151,7 +151,11 @@
   "Start a consumer process. This will spin up several worker threads to
   handle the machinery of listening to the topic, and at least 2
   database connections (one for LISTEN/NOTIFY and one for fetching
-  and committing)
+  and committing).
+
+  If no subscription exists for the given topic and group, one is created
+  automatically at startup with the cursor set to 0 (reads from the
+  beginning of the topic).
 
     - `selection` a topic (string) or a map:
        - `:topic`        (string) name of topic to listen to
