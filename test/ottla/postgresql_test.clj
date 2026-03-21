@@ -118,6 +118,8 @@
       (is (match? [{:topic topic
                     :group "default"
                     :offset 0
+                    :updated-at nil
+                    :processing-delay nil
                     :topic-eid 3
                     :lag 3
                     :timestamp nil
@@ -130,6 +132,8 @@
       (is (match? [{:topic topic
                     :group "default"
                     :offset 1
+                    :updated-at instant?
+                    :processing-delay (m/pred #(instance? java.time.Duration %) "Duration")
                     :topic-eid 3
                     :lag 2
                     :timestamp instant?
@@ -144,6 +148,8 @@
       (is (match? [{:topic topic
                     :group "default"
                     :offset 3
+                    :updated-at instant?
+                    :processing-delay (m/pred #(instance? java.time.Duration %) "Duration")
                     :topic-eid 3
                     :lag 0
                     :timestamp instant?

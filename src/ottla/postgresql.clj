@@ -6,6 +6,8 @@
             [honey.sql])
   (:import [java.time Duration]))
 
+(def ^:private negative-infinity [:raw "'-Infinity'::timestamptz"])
+
 (defn legal-identifier?
   [^String s]
   (boolean
@@ -109,6 +111,7 @@ ON CONFLICT (topic, group_id) DO NOTHING")
                                     [:topic :text [:not nil] [:references (keyword schema "topics") :topic]]
                                     [:group_id :text [:not nil] [:default [:inline default-subscription-group]]]
                                     [:cursor :bigint [:not nil] [:default [:inline 0]]]
+                                    [:updated_at :timestamptz [:not nil] [:default negative-infinity]]
                                     [[:unique] [:composite :topic :group_id]]]}))))
 
 (defn delete-topic
@@ -260,6 +263,7 @@ ON CONFLICT (topic, group_id) DO NOTHING")
                              :select [:s.topic
                                       [:s.group_id :group]
                                       [:s.cursor :offset]
+                                      [[:nullif :s.updated_at negative-infinity] :updated_at]
                                       [:t.timestamp :timestamp]
                                       [:maxts :topic_timestamp]
                                       [:maxeid :topic_eid]
@@ -279,16 +283,19 @@ ON CONFLICT (topic, group_id) DO NOTHING")
             (comp
              (map #(honey/execute conn %))
              cat
-             (map (fn [{:keys [topic group offset timestamp topic_timestamp topic_eid lag]}]
+             (map (fn [{:keys [topic group offset updated_at timestamp topic_timestamp topic_eid lag]}]
                     {:topic topic
                      :group group
                      :offset offset
+                     :updated-at (some-> updated_at .toInstant)
                      :timestamp (some-> timestamp .toInstant)
                      :topic-timestamp (some-> topic_timestamp .toInstant)
                      :topic-eid topic_eid
                      :lag lag
                      :timestamp-lag (when (and timestamp topic_timestamp)
-                                      (Duration/between timestamp topic_timestamp))})))
+                                      (Duration/between timestamp topic_timestamp))
+                     :processing-delay (when (and updated_at timestamp)
+                                         (Duration/between updated_at timestamp))})))
             queries))))
 
 (defn topic-subscriptions
@@ -306,9 +313,12 @@ ON CONFLICT (topic, group_id) DO NOTHING")
     - :offset            last committed eid for this group
     - :topic-eid         highest eid available in the topic
     - :lag               number of unread records (topic-eid - offset)
+    - :updated-at        java.time.Instant of the last offset commit (nil if never committed)
     - :timestamp         java.time.Instant of the last consumed record (nil if offset is 0)
     - :topic-timestamp   java.time.Instant of the latest record in the topic (nil if empty)
-    - :timestamp-lag     java.time.Duration between subscription and topic timestamps (nil if either is nil)"
+    - :timestamp-lag     java.time.Duration between subscription and topic timestamps (nil if either is nil)
+    - :processing-delay  java.time.Duration from publish time to consumer commit for the most
+                         recently consumed record (nil if either :updated-at or :timestamp is nil)"
   [{:keys [conn] :as config}]
   (pg/with-connection [conn conn]
     (let [config (assoc config :conn conn)
@@ -380,7 +390,7 @@ ON CONFLICT (topic, group_id) DO NOTHING")
 (defn commit-offset!
   [{:keys [conn schema]} {:keys [topic group]} cursor]
   (honey/execute conn {:update [(keyword schema "subs")]
-                       :set {:cursor cursor}
+                       :set {:cursor cursor :updated_at [:now]}
                        :where [:and [:= :topic topic]
                                [:= :group_id group]
                                [:< :cursor cursor]]}))
@@ -388,7 +398,7 @@ ON CONFLICT (topic, group_id) DO NOTHING")
 (defn reset-offset!
   [{:keys [conn schema]} {:keys [topic group]} cursor]
   (honey/execute conn {:update [(keyword schema "subs")]
-                       :set {:cursor cursor}
+                       :set {:cursor cursor :updated_at [:now]}
                        :where [:and [:= :topic topic]
                                [:= :group_id group]]}))
 

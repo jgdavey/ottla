@@ -286,13 +286,17 @@ consumer group's offset before starting (or while stopped):
   (ottla/list-subscriptions config))
 ;; => [{:topic "my-new-topic" :group "default"
 ;;      :offset 42 :topic-eid 50 :lag 8
+;;      :updated-at      #inst "2024-01-01T12:00:05Z"
 ;;      :timestamp       #inst "2024-01-01T12:00:00Z"
 ;;      :topic-timestamp #inst "2024-01-01T12:05:00Z"
-;;      :timestamp-lag   #object[java.time.Duration "PT5M"]} ,,,]
+;;      :timestamp-lag   #object[java.time.Duration "PT5M"]
+;;      :processing-delay #object[java.time.Duration "PT5S"]} ,,,]
 ```
 
 - `:lag` is the count of unread records; `0` means fully caught up
+- `:updated-at` is the `java.time.Instant` when the consumer last committed its offset; `nil` if the subscription has never consumed a record
 - `:timestamp-lag` is a `java.time.Duration` between the last consumed record and the latest record; `nil` if the topic is empty or `:offset` is `0`
+- `:processing-delay` is a `java.time.Duration` from when the last consumed record was published to when the consumer committed it; `nil` if `:updated-at` or `:timestamp` is `nil`
 - Topics with no subscriptions do not appear in this list
 
 `topic-subscriptions` returns the same information grouped by topic. Every topic appears in the result, even those with no subscribers:
@@ -303,9 +307,11 @@ consumer group's offset before starting (or while stopped):
 ;; => [{:topic "my-new-topic"
 ;;      :subscriptions [{:group "default"
 ;;                       :offset 42 :topic-eid 50 :lag 8
-;;                       :timestamp       #inst "2024-01-01T12:00:00Z"
-;;                       :topic-timestamp #inst "2024-01-01T12:05:00Z"
-;;                       :timestamp-lag   #object[java.time.Duration "PT5M"]}]}
+;;                       :updated-at       #inst "2024-01-01T12:00:05Z"
+;;                       :timestamp        #inst "2024-01-01T12:00:00Z"
+;;                       :topic-timestamp  #inst "2024-01-01T12:05:00Z"
+;;                       :timestamp-lag    #object[java.time.Duration "PT5M"]
+;;                       :processing-delay #object[java.time.Duration "PT5S"]}]}
 ;;     {:topic "unused-topic"
 ;;      :subscriptions []} ,,,]
 ```
