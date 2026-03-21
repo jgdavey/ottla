@@ -62,7 +62,9 @@
 
 (defn default-exception-handler
   [^Exception e]
-  (println "Uncaught exception in consumer handler:" e))
+  (binding [*out* *err*]
+    (println "Uncaught exception in consumer handler:" (ex-message e))
+    (.printStackTrace e ^java.io.PrintWriter *err*)))
 
 (defmacro with-commit-mode [[conn commit-mode] & body]
   `(if (= :tx-wrap ~commit-mode)
@@ -149,5 +151,6 @@
                              (pg/unlisten c topic)))))
         _ (.submit listener ^Callable listen-fn)]
     (when-not (deref listening? 100 false)
-      (println "Warning: Not listening after 100 ms"))
+      (binding [*out* *err*]
+        (println "Warning: Not listening after 100 ms")))
     consumer))
