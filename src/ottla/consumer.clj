@@ -164,6 +164,6 @@
                                   (catch InterruptedException _))
                              (recur (inc reconnects))))))
         _ (.submit listener ^Callable listen-fn)]
-    (when-not (deref listening? 100 false)
-      (log/warn "Not listening after 100 ms"))
+    (when-not (deref listening? reconnect-ms false)
+      (log/warnf "Not listening after %s ms" reconnect-ms))
     consumer))
