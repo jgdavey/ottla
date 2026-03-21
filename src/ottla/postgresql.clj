@@ -188,6 +188,33 @@ ON CONFLICT (topic, group_id) DO NOTHING")
     found
     (throw (IllegalArgumentException. (str "No such topic: " topic-name)))))
 
+(defn trim-topic
+  [{:keys [conn schema] :as config} topic & {:keys [before-eid before-timestamp all? ignore-subscriptions?]
+                                             :or {ignore-subscriptions? false}}]
+  (let [mode-count (+ (if (some? before-eid) 1 0)
+                      (if (some? before-timestamp) 1 0)
+                      (if all? 1 0))]
+    (when (not= 1 mode-count)
+      (throw (IllegalArgumentException. "exactly one of :before-eid, :before-timestamp, or :all? must be provided"))))
+  (pg/with-connection [conn conn]
+    (pg/with-transaction [conn conn]
+      (let [config (assoc config :conn conn)
+            {:keys [table-name]} (fetch-topic config topic)
+            qtable (keyword schema table-name)
+            primary-condition (cond
+                                before-eid [:< :eid before-eid]
+                                before-timestamp [:< :timestamp before-timestamp]
+                                all? [:< :eid {:select [[[:max :eid]]] :from qtable}])
+            ;; Unless we're ignoring subscription, AND with eid < min-cursor to protect unconsumed records
+            where-clause (if ignore-subscriptions?
+                           primary-condition
+                           [:and primary-condition
+                            [:< :eid
+                             {:select [[[:min :cursor]]]
+                              :from [(keyword schema "subs")]}]])]
+        (:deleted (honey/execute conn {:delete-from qtable
+                                       :where where-clause}))))))
+
 (defn ensure-topic
   "Fetch or create a topic. Returns the existing topic if it already exists
   with the same key-type and value-type. Throws if the topic exists but was

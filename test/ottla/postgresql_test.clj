@@ -152,6 +152,75 @@
                                                  (.isZero %)) "Duration")}]
                   result)))))
 
+(deftest trim-topic-test
+  (let [topic "events"
+        _ (postgres/create-topic *config* topic :key-type :text :value-type :text)
+        insert! #(postgres/insert-records *config* topic (mapv (fn [k] {:key k :value k}) %))
+        ;; Helper: fetch all remaining keys using a dedicated group that resets each call
+        all-keys (fn []
+                   (let [sel (postgres/normalize-selection {:topic topic :group "check"})
+                         sel (assoc sel :commit-mode :manual)]
+                     (postgres/ensure-subscription *config* sel)
+                     (postgres/reset-offset! *config* sel 0)
+                     (mapv :key (postgres/fetch-records! *config* sel))))]
+
+    (testing "requires exactly one mode"
+      (is (thrown? IllegalArgumentException
+                   (postgres/trim-topic *config* topic)))
+      (is (thrown? IllegalArgumentException
+                   (postgres/trim-topic *config* topic :before-eid 5 :all? true))))
+
+    (testing "returns 0 for empty topic"
+      (is (= 0 (postgres/trim-topic *config* topic :all? true :ignore-subscriptions? true))))
+
+    ;; Insert records; eids are 1-5
+    (insert! ["a" "b" "c" "d" "e"])
+
+    (testing ":before-eid deletes records with eid strictly less than the given value"
+      ;; Uses :ignore-subscriptions? to avoid interference from the check group at cursor 0
+      (is (= 2 (postgres/trim-topic *config* topic :before-eid 3 :ignore-subscriptions? true)))
+      (is (= ["c" "d" "e"] (all-keys))))
+
+    (testing ":all? deletes all records before the current max eid"
+      ;; MAX eid = 5 ("e"); deletes WHERE eid < 5 → removes "c" and "d" (2 records)
+      ;; "e" (the max) is preserved
+      (is (= 2 (postgres/trim-topic *config* topic :all? true :ignore-subscriptions? true)))
+      (is (= ["e"] (all-keys))))
+
+    (testing ":before-timestamp deletes records with timestamp before the given value"
+      ;; "e" was inserted earlier; capture mid-point then insert two more
+      (let [mid (java.time.Instant/now)
+            _ (Thread/sleep 5)]
+        (insert! ["f" "g"])
+        (is (= 1 (postgres/trim-topic *config* topic :before-timestamp mid :ignore-subscriptions? true)))
+        (is (= ["f" "g"] (all-keys)))))))
+
+(deftest trim-topic-subscription-aware-test
+  (let [topic "events"
+        _ (postgres/create-topic *config* topic :key-type :text :value-type :text)
+        insert! #(postgres/insert-records *config* topic (mapv (fn [k] {:key k :value k}) %))]
+
+    (insert! ["a" "b" "c" "d" "e"])
+    ;; eids 1-5
+    (let [sel (postgres/normalize-selection topic)
+          _ (postgres/ensure-subscription *config* sel)]
+
+      (testing "cursor at 0: clamps cutoff to 0, deletes nothing"
+        ;; MAX=5, sub-floor=0, cutoff=min(5,0)=0, DELETE WHERE eid < 0 → 0 records
+        (is (= 0 (postgres/trim-topic *config* topic :all? true))))
+
+      ;; Advance cursor to 2 by consuming 2 records in :auto mode
+      (postgres/fetch-records! *config* (assoc sel :limit 2))
+
+      (testing "subscription-aware: clamps cutoff to min cursor"
+        ;; MAX=5, sub-floor=2, cutoff=min(5,2)=2, DELETE WHERE eid < 2 → deletes eid 1 only
+        (is (= 1 (postgres/trim-topic *config* topic :all? true))))
+
+      (testing ":ignore-subscriptions? bypasses the subscription floor"
+        ;; eid 1 deleted above; remaining eids 2-5, MAX=5
+        ;; DELETE WHERE eid < 5 → deletes eids 2,3,4 (3 records)
+        (is (= 3 (postgres/trim-topic *config* topic :all? true :ignore-subscriptions? true)))))))
+
 (deftest topic-subscriptions-test
   (let [topic-1 "topic-1"
         topic-2 "topic.2"

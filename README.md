@@ -92,6 +92,33 @@ topics can be created with `remove-topic!`:
 Note that is a *destructive* action, and all data from the topic will
 be removed immediately.
 
+### Log retention
+
+For long-running topics, use `trim-topic!` to delete old records and prevent unbounded table growth. Exactly one mode must be provided:
+
+```clojure
+;; Delete all records with eid less than 1000
+(ottla/trim-topic! config "my-topic" :before-eid 1000)
+
+;; Delete all records older than a given timestamp
+(ottla/trim-topic! config "my-topic" :before-timestamp #inst "2024-01-01")
+
+;; Delete all records before the current maximum eid
+;; The most recent record is always retained
+(ottla/trim-topic! config "my-topic" :all? true)
+```
+
+`trim-topic!` returns the number of records deleted.
+
+By default, the deletion is clamped to the minimum subscription cursor across all consumer groups. This prevents deleting records that have not yet been consumed. Pass `:ignore-subscriptions? true` to delete unconditionally:
+
+```clojure
+;; Delete unconditionally, regardless of subscriber position
+(ottla/trim-topic! config "my-topic" :all? true :ignore-subscriptions? true)
+```
+
+Only the most recent record will be retained from the above.
+
 ### Producing data
 
 

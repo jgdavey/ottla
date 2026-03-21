@@ -105,6 +105,21 @@
   [config topic]
   (postgres/delete-topic config (name topic)))
 
+(defn trim-topic!
+  "Delete records from a topic. Exactly one of the following options must be provided:
+    - `:before-eid`        delete all records with eid less than this value
+    - `:before-timestamp`  delete all records with timestamp before this value
+    - `:all?`              delete all records before the current maximum eid;
+                           the most recent record is always retained
+
+  By default, the deletion is clamped to the minimum subscription cursor across
+  all consumer groups, preserving records not yet consumed by any subscriber.
+  Pass `:ignore-subscriptions? true` to delete unconditionally.
+
+  Returns the number of records deleted."
+  [config topic & {:as opts}]
+  (postgres/trim-topic config (name topic) opts))
+
 (defn start-consumer
   "Start a consumer process. This will spin up several worker threads to
   handle the machinery of listening to the topic, and at least 2
