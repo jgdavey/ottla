@@ -89,10 +89,11 @@
    {:keys [topic] :as basic-selection}
    handler
    {:keys [poll-ms deserialize-key deserialize-value xform
-           exception-handler await-close-ms listen-ms max-records]
+           exception-handler await-close-ms listen-ms reconnect-ms max-records]
     :or {poll-ms 15000
          await-close-ms 1000
          listen-ms 2
+         reconnect-ms 2000
          exception-handler default-exception-handler
          xform identity
          max-records 100}
@@ -130,25 +131,40 @@
         _ (.scheduleAtFixedRate poller (fn* [] (do-work-fn nil)) 0 poll-ms TimeUnit/MILLISECONDS)
         listening? (promise)
         listen-fn (fn* []
-                       (pg/with-connection [c conn-map]
-                         (try
-                           (pg/listen c topic)
-                           (deliver listening? true)
-                           (loop []
-                             (pg/poll-notifications c)
-                             (let [bail? (try (doseq [{:keys [message]} (pg/drain-notifications c)]
-                                                (do-work-fn (try (parse-long message)
-                                                                 (catch NumberFormatException _ nil))))
-                                              (catch org.pg.error.PGErrorIO _
-                                                (Thread/interrupted))
-                                              (catch Exception ex
-                                                (exception-handler ex)
-                                                true))]
-                               (when-not bail?
-                                 (sleep listen-ms)
-                                 (recur))))
-                           (finally
-                             (pg/unlisten c topic)))))
+                       (loop [reconnects 0]
+                         (when-not (.isShutdown listener)
+                           (try
+                             (pg/with-connection [c conn-map]
+                               (try
+                                 (pg/listen c topic)
+                                 (if (realized? listening?)
+                                   ;; This is a reconnect
+                                   (do-work-fn nil)
+                                   ;; This is the first run
+                                   (deliver listening? true))
+                                 (loop []
+                                   (pg/poll-notifications c)
+                                   (let [bail? (try (doseq [{:keys [message]} (pg/drain-notifications c)]
+                                                      (do-work-fn (try (parse-long message)
+                                                                       (catch NumberFormatException _ nil))))
+                                                    (catch org.pg.error.PGErrorIO _
+                                                      true)
+                                                    (catch Exception ex
+                                                      (exception-handler ex)
+                                                      true))]
+                                     (when-not bail?
+                                       (sleep listen-ms)
+                                       (recur))))
+                                 (finally
+                                   (try (pg/unlisten c topic) (catch Exception _)))))
+                             (catch InterruptedException _)
+                             (catch Exception _))
+                           (when-not (.isShutdown listener)
+                             (binding [*out* *err*]
+                               (println "Warning: Listener disconnected, reconnecting in " reconnect-ms "ms, " reconnects " previous attempts"))
+                             (try (sleep reconnect-ms)
+                                  (catch InterruptedException _))
+                             (recur (inc reconnects))))))
         _ (.submit listener ^Callable listen-fn)]
     (when-not (deref listening? 100 false)
       (binding [*out* *err*]
