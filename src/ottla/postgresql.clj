@@ -205,13 +205,15 @@ ON CONFLICT (topic, group_id) DO NOTHING")
                                 before-eid [:< :eid before-eid]
                                 before-timestamp [:< :timestamp before-timestamp]
                                 all? [:< :eid {:select [[[:max :eid]]] :from qtable}])
-            ;; Unless we're ignoring subscription, AND with eid < min-cursor to protect unconsumed records
+            ;; Unless we're ignoring subscriptions, AND with eid < min-cursor to protect unconsumed records.
+            ;; COALESCE to Long/MAX_VALUE so that no subscriptions = no restriction.
             where-clause (if ignore-subscriptions?
                            primary-condition
                            [:and primary-condition
                             [:< :eid
-                             {:select [[[:min :cursor]]]
-                              :from [(keyword schema "subs")]}]])]
+                             {:select [[[:coalesce [[:min :cursor]] [:inline Long/MAX_VALUE]]]]
+                              :from [(keyword schema "subs")]
+                              :where [:= :topic topic]}]])]
         (:deleted (honey/execute conn {:delete-from qtable
                                        :where where-clause}))))))
 

@@ -202,24 +202,32 @@
 
     (insert! ["a" "b" "c" "d" "e"])
     ;; eids 1-5
+
+    (testing "no subscriptions: proceeds without restriction"
+      (is (= 4 (postgres/trim-topic *config* topic :all? true))))
+
+    ;; Re-insert to give the subscription tests a known state; eids 6-10
+    (insert! ["f" "g" "h" "i" "j"])
+    ;; eids 5-10 now exist
+
     (let [sel (postgres/normalize-selection topic)
           _ (postgres/ensure-subscription *config* sel)]
 
       (testing "cursor at 0: clamps cutoff to 0, deletes nothing"
-        ;; MAX=5, sub-floor=0, cutoff=min(5,0)=0, DELETE WHERE eid < 0 → 0 records
+        ;; MAX=10, sub-floor=0, DELETE WHERE eid < 0 → 0 records
         (is (= 0 (postgres/trim-topic *config* topic :all? true))))
 
-      ;; Advance cursor to 2 by consuming 2 records in :auto mode
+      ;; Advance cursor by consuming 2 records (:auto commit); cursor → eid of "f" (6)
       (postgres/fetch-records! *config* (assoc sel :limit 2))
 
       (testing "subscription-aware: clamps cutoff to min cursor"
-        ;; MAX=5, sub-floor=2, cutoff=min(5,2)=2, DELETE WHERE eid < 2 → deletes eid 1 only
+        ;; MAX=10, sub-floor=6, DELETE WHERE eid < 6 → deletes eid 5 ("e") only
         (is (= 1 (postgres/trim-topic *config* topic :all? true))))
 
       (testing ":ignore-subscriptions? bypasses the subscription floor"
-        ;; eid 1 deleted above; remaining eids 2-5, MAX=5
-        ;; DELETE WHERE eid < 5 → deletes eids 2,3,4 (3 records)
-        (is (= 3 (postgres/trim-topic *config* topic :all? true :ignore-subscriptions? true)))))))
+        ;; eid 5 deleted above; remaining eids 6-10, MAX=10
+        ;; DELETE WHERE eid < 10 → deletes eids 6,7,8,9 (4 records)
+        (is (= 4 (postgres/trim-topic *config* topic :all? true :ignore-subscriptions? true)))))))
 
 (deftest topic-subscriptions-test
   (let [topic-1 "topic-1"
