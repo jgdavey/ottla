@@ -5,6 +5,20 @@ This change log follows the conventions of [keepachangelog.com](http://keepachan
 
 ## [Unreleased]
 
+### Added
+
+* New function `ottla.core/trim-topic!` for log retention and cleanup
+* New function `ottla.core/list-subscriptions`
+* Add `:index-key?` option for `add-topic!` and `ensure-topic` (with default false)
+* Add `:max-records` option to consumer to cap batch size (with default 100)
+* Promote `ottla.core/topic-subscriptions` to the public API
+* Update the optional specs
+
+### Changed
+
+* Track `:updated-at` field in subscriptions
+* Consumer now uses `clojure.tools.logging` instead of `println` for warnings and errors
+
 ## [0.3.3] - 2026-03-02
 
 ### Added
