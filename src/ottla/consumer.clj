@@ -157,7 +157,8 @@
                                  (finally
                                    (try (pg/unlisten c topic) (catch Exception _)))))
                              (catch InterruptedException _)
-                             (catch Exception _))
+                             (catch Exception e
+                               (log/error e "Error in Listener")))
                            (when-not (.isShutdown listener)
                              (log/warnf "Listener disconnected, reconnecting in %dms (%d previous attempts)" reconnect-ms reconnects)
                              (try (sleep reconnect-ms)
