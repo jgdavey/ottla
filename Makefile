@@ -30,7 +30,7 @@ pom.xml: deps.edn
 	clojure -Spom
 
 test:
-	bin/kaocha
+	OTTLA_TEST_SCHEMA=ottla_test bin/kaocha
 
 clean:
 	@rm -rf $(TARGET_DIR)

@@ -18,7 +18,8 @@
 
 (def ^:dynamic *config* nil)
 
-(def default-schema "ottla")
+(def default-schema
+  (or (System/getenv "OTTLA_TEST_SCHEMA") "ottla"))
 
 (defn reset-schema!
   [{:keys [conn conn-map schema] :as config}]
