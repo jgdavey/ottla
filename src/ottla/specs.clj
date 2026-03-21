@@ -183,8 +183,50 @@
 
 ;;; Monitoring
 
+(s/def :ottla.subscription/group string?)
+(s/def :ottla.subscription/offset nat-int?)
+(s/def :ottla.subscription/topic-eid nat-int?)
+(s/def :ottla.subscription/lag nat-int?)
+(s/def :ottla.subscription/updated-at (s/nilable #(instance? java.time.Instant %)))
+(s/def :ottla.subscription/timestamp (s/nilable #(instance? java.time.Instant %)))
+(s/def :ottla.subscription/topic-timestamp (s/nilable #(instance? java.time.Instant %)))
+(s/def :ottla.subscription/timestamp-lag (s/nilable #(instance? java.time.Duration %)))
+(s/def :ottla.subscription/processing-delay (s/nilable #(instance? java.time.Duration %)))
+
+(s/def :ottla/subscription
+  (s/keys :req-un [:ottla.topic/topic
+                   :ottla.subscription/group
+                   :ottla.subscription/offset
+                   :ottla.subscription/topic-eid
+                   :ottla.subscription/lag
+                   :ottla.subscription/updated-at
+                   :ottla.subscription/timestamp
+                   :ottla.subscription/topic-timestamp
+                   :ottla.subscription/timestamp-lag
+                   :ottla.subscription/processing-delay]))
+
 (s/def :ottla.list-subscriptions/topics (s/coll-of string?))
 
 (s/fdef ottla/list-subscriptions
   :args (s/cat :config :ottla/config
-               :opts (s/keys* :opt-un [:ottla.list-subscriptions/topics])))
+               :opts (s/keys* :opt-un [:ottla.list-subscriptions/topics]))
+  :ret (s/coll-of :ottla/subscription))
+
+(s/def :ottla/topic-with-subscriptions
+  (s/keys :req-un [:ottla.topic/topic
+                   :ottla/subscriptions]))
+
+(s/def :ottla/subscriptions
+  (s/coll-of (s/keys :req-un [:ottla.subscription/group
+                               :ottla.subscription/offset
+                               :ottla.subscription/topic-eid
+                               :ottla.subscription/lag
+                               :ottla.subscription/updated-at
+                               :ottla.subscription/timestamp
+                               :ottla.subscription/topic-timestamp
+                               :ottla.subscription/timestamp-lag
+                               :ottla.subscription/processing-delay])))
+
+(s/fdef ottla/topic-subscriptions
+  :args (s/cat :config :ottla/config)
+  :ret (s/coll-of :ottla/topic-with-subscriptions))
