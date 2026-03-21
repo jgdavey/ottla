@@ -294,3 +294,20 @@ consumer group's offset before starting (or while stopped):
 - `:lag` is the count of unread records; `0` means fully caught up
 - `:timestamp-lag` is a `java.time.Duration` between the last consumed record and the latest record; `nil` if the topic is empty or `:offset` is `0`
 - Topics with no subscriptions do not appear in this list
+
+`topic-subscriptions` returns the same information grouped by topic. Every topic appears in the result, even those with no subscribers:
+
+```clojure
+(ottla/with-connected-config [config {,,,}]
+  (ottla/topic-subscriptions config))
+;; => [{:topic "my-new-topic"
+;;      :subscriptions [{:group "default"
+;;                       :offset 42 :topic-eid 50 :lag 8
+;;                       :timestamp       #inst "2024-01-01T12:00:00Z"
+;;                       :topic-timestamp #inst "2024-01-01T12:05:00Z"
+;;                       :timestamp-lag   #object[java.time.Duration "PT5M"]}]}
+;;     {:topic "unused-topic"
+;;      :subscriptions []} ,,,]
+```
+
+The subscription maps inside `:subscriptions` carry the same keys as `list-subscriptions` entries, minus `:topic` (which is on the outer map).

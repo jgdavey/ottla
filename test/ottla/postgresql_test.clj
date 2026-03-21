@@ -248,7 +248,9 @@
                   :subscriptions []}
                  {:topic topic-2
                   :subscriptions [{:group "default"
-                                   :offset 1}
+                                   :offset 1
+                                   :lag 0}
                                   {:group "nice"
-                                   :offset 0}]}]
+                                   :offset 0
+                                   :lag 1}]}]
                 (postgres/topic-subscriptions *config*)))))

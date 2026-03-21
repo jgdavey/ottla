@@ -292,16 +292,33 @@ ON CONFLICT (topic, group_id) DO NOTHING")
             queries))))
 
 (defn topic-subscriptions
-  [{:keys [conn schema]}]
-  (honey/execute conn {:select [:topic
-                                [[:coalesce {:select [[[:jsonb_agg
-                                                        [:jsonb_build_object
-                                                         [:inline "offset"] :cursor
-                                                         [:inline "group"] :group_id]] :sub]]
-                                             :from [[(keyword schema "subs") :s]]
-                                             :where [:= :s.topic :t.topic]}
-                                  [:raw "'[]'::jsonb"]] :subscriptions]]
-                       :from [[(keyword schema "topics") :t]]}))
+  "Returns all topics with their consumer group subscriptions nested under each
+  topic. Unlike `list-subscriptions`, every topic appears in the result even if
+  it has no subscribers.
+
+  Each entry is a map with:
+    - :topic          the topic name
+    - :subscriptions  a vector of subscription maps (empty when no subscribers)
+
+  Each subscription map contains the same keys as `list-subscriptions` (except
+  :topic, which is on the outer map):
+    - :group             consumer group id
+    - :offset            last committed eid for this group
+    - :topic-eid         highest eid available in the topic
+    - :lag               number of unread records (topic-eid - offset)
+    - :timestamp         java.time.Instant of the last consumed record (nil if offset is 0)
+    - :topic-timestamp   java.time.Instant of the latest record in the topic (nil if empty)
+    - :timestamp-lag     java.time.Duration between subscription and topic timestamps (nil if either is nil)"
+  [{:keys [conn] :as config}]
+  (pg/with-connection [conn conn]
+    (let [config (assoc config :conn conn)
+          topics (list-topics config)
+          subs (list-subscriptions config {})
+          subs-by-topic (group-by :topic subs)]
+      (mapv (fn [{:keys [topic]}]
+              {:topic topic
+               :subscriptions (mapv #(dissoc % :topic) (get subs-by-topic topic []))})
+            topics))))
 
 (def commit-modes #{:manual :auto :tx-wrap})
 
