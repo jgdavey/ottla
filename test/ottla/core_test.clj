@@ -229,6 +229,14 @@
       (Thread/sleep 10)
       (is (not= :running (consumer/status consumer))))))
 
+(deftest test-list-subscriptions
+  (is (= [] (ottla/list-subscriptions *config*)))
+  (ottla/add-topic! *config* "events")
+  (ottla/append! *config* "events" [{:key nil :value nil}
+                                    {:key nil :value nil}])
+  ;; No subscriptions yet — topics alone don't create them
+  (is (= [] (ottla/list-subscriptions *config*))))
+
 (deftest test-list-topics
   (is (= [] (ottla/list-topics *config*)))
   (ottla/add-topic! *config* "aaa" {:key-type :text :value-type :jsonb})

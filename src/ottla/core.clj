@@ -76,6 +76,24 @@
   [config]
   (postgres/list-topics config))
 
+(defn list-subscriptions
+  "Returns a vector of all subscriptions, ordered by topic and group.
+  Each subscription is a map with:
+    - :topic             the topic name
+    - :group             the consumer group id
+    - :offset            the last committed eid for this group
+    - :topic-eid         the highest eid available in the topic
+    - :lag               the number of unread records (topic-eid - offset)
+    - :timestamp         java.time.Instant of the last consumed record (nil if offset is 0)
+    - :topic-timestamp   java.time.Instant of the latest record in the topic (nil if empty)
+    - :timestamp-lag     java.time.Duration between subscription and topic timestamps (nil if either is nil)
+
+   Options:
+    - `:topics`  a collection of topic names to filter by. When
+                 not specified, all topics will be fetched"
+  [config & {:as opts}]
+  (postgres/list-subscriptions config opts))
+
 (defn remove-topic!
   "Remove a topic. Warning: permanently and immediately removes all records for the topic.
     - `config`   a connected config map

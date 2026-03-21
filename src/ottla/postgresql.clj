@@ -3,7 +3,8 @@
             [pg.core :as pg]
             [pg.honey :as honey]
             [ottla.serde.registry :refer [get-serializer! get-deserializer!]]
-            [honey.sql]))
+            [honey.sql])
+  (:import [java.time Duration]))
 
 (defn legal-identifier?
   [^String s]
@@ -196,6 +197,59 @@ ON CONFLICT (topic, group_id) DO NOTHING")
               found
               (throw (ex-info "Topic definition differs from stored" {:stored stored, :passed passed}))))
           (create-topic config topic-name opts))))))
+
+(defn list-subscriptions
+  [{:keys [conn schema]}
+   & [{:keys [topics]}]]
+  (pg/with-connection [conn conn]
+    (let [subs-table (keyword schema "subs")
+          topics-table (keyword schema "topics")
+          tt (honey/execute conn
+                            (cond->
+                             {:select [:t.topic :t.table_name]
+                              :from [[topics-table :t]]}
+                              topics (assoc :where [:= :t.topic [:any [:lift (vec topics)]]])))
+          queries (mapv (fn [{:keys [topic table_name]}]
+                          (let [qtable (keyword schema table_name)]
+                            {:with [[:m
+                                     {:select [[:eid :maxeid]
+                                               [:timestamp :maxts]]
+                                      :from [qtable]
+                                      :order-by [[:eid :desc]]
+                                      :limit [:inline 1]}]]
+                             :select [:s.topic
+                                      [:s.group_id :group]
+                                      [:s.cursor :offset]
+                                      [:t.timestamp :timestamp]
+                                      [:maxts :topic_timestamp]
+                                      [:maxeid :topic_eid]
+                                      [[:- :maxeid :s.cursor] :lag]]
+                             :from [[subs-table :s] :m]
+                             :left-join [[[:lateral
+                                           {:select [:eid :timestamp]
+                                            :from [[qtable :l]]
+                                            :where [:<= :l.eid :s.cursor]
+                                            :order-by [[:eid :desc]]
+                                            :limit [:inline 1]}]
+                                          :t]
+                                         true]
+                             :where [:= :s.topic topic]}))
+                        tt)]
+      (into []
+            (comp
+             (map #(honey/execute conn %))
+             cat
+             (map (fn [{:keys [topic group offset timestamp topic_timestamp topic_eid lag]}]
+                    {:topic topic
+                     :group group
+                     :offset offset
+                     :timestamp (some-> timestamp .toInstant)
+                     :topic-timestamp (some-> topic_timestamp .toInstant)
+                     :topic-eid topic_eid
+                     :lag lag
+                     :timestamp-lag (when (and timestamp topic_timestamp)
+                                      (Duration/between timestamp topic_timestamp))})))
+            queries))))
 
 (defn topic-subscriptions
   [{:keys [conn schema]}]

@@ -249,3 +249,21 @@ consumer group's offset before starting (or while stopped):
 ;; Replay from a specific record id
 (ottla/reset-consumer-offset! config {:topic "my-new-topic" :group "default"} 42)
 ```
+
+### Monitoring
+
+`list-subscriptions` returns all consumer group offsets along with the current max eid and calculated lag for each:
+
+```clojure
+(ottla/with-connected-config [config {,,,}]
+  (ottla/list-subscriptions config))
+;; => [{:topic "my-new-topic" :group "default"
+;;      :offset 42 :topic-eid 50 :lag 8
+;;      :timestamp       #inst "2024-01-01T12:00:00Z"
+;;      :topic-timestamp #inst "2024-01-01T12:05:00Z"
+;;      :timestamp-lag   #object[java.time.Duration "PT5M"]} ,,,]
+```
+
+- `:lag` is the count of unread records; `0` means fully caught up
+- `:timestamp-lag` is a `java.time.Duration` between the last consumed record and the latest record; `nil` if the topic is empty or `:offset` is `0`
+- Topics with no subscriptions do not appear in this list

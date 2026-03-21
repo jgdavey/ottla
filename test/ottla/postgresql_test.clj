@@ -3,6 +3,7 @@
             [ottla.test-helpers :as th :refer [*config*]]
             [ottla.postgresql :as postgres]
             [matcher-combinators.test]
+            [matcher-combinators.matchers :as m]
             [pg.core :as pg]))
 
 (declare match?)
@@ -95,6 +96,54 @@
                     :topic topic}]
                   (postgres/fetch-records! *config* selection)))
       (is (= [] (postgres/fetch-records! *config* selection))))))
+
+(deftest list-subscriptions-test
+  (let [topic "events"
+        instant? (m/pred #(instance? java.time.Instant %) "Instant")
+        _ (postgres/create-topic *config* topic :key-type :text :value-type :text)
+        selection (postgres/normalize-selection topic)]
+    (is (= [] (postgres/list-subscriptions *config*)))
+    (postgres/ensure-subscription *config* selection)
+    (postgres/insert-records *config* topic [{:key "a" :value "1"}
+                                             {:key "b" :value "2"}])
+    (postgres/insert-records *config* topic [{:key "c" :value "3"}])
+    (let [result (postgres/list-subscriptions *config*)]
+      (is (match? [{:topic topic
+                    :group "default"
+                    :offset 0
+                    :topic-eid 3
+                    :lag 3
+                    :timestamp nil
+                    :topic-timestamp instant?
+                    :timestamp-lag nil}]
+                  result)))
+    ;; Similate lag by only fetching a single record
+    (postgres/fetch-records! *config* (assoc selection :limit 1))
+    (let [result (postgres/list-subscriptions *config*)]
+      (is (match? [{:topic topic
+                    :group "default"
+                    :offset 1
+                    :topic-eid 3
+                    :lag 2
+                    :timestamp instant?
+                    :topic-timestamp instant?
+                    :timestamp-lag (m/via #(.toMillis %)
+                                          ;; Between 0 and 10
+                                          (m/within-delta 5 5))}]
+                  result)))
+    ;; "Catch up" with the topic
+    (postgres/fetch-records! *config* selection)
+    (let [result (postgres/list-subscriptions *config*)]
+      (is (match? [{:topic topic
+                    :group "default"
+                    :offset 3
+                    :topic-eid 3
+                    :lag 0
+                    :timestamp instant?
+                    :topic-timestamp instant?
+                    :timestamp-lag (m/pred #(and (instance? java.time.Duration %)
+                                                 (.isZero %)) "Duration")}]
+                  result)))))
 
 (deftest topic-subscriptions-test
   (let [topic-1 "topic-1"
