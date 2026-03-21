@@ -1,6 +1,7 @@
 (ns ottla.consumer
   (:require [ottla.postgresql :as postgres]
             [ottla.serde.registry :refer [get-deserializer!]]
+            [clojure.tools.logging :as log]
             [pg.core :as pg])
   (:import [java.lang AutoCloseable]
            [java.io Closeable]
@@ -62,9 +63,7 @@
 
 (defn default-exception-handler
   [^Exception e]
-  (binding [*out* *err*]
-    (println "Uncaught exception in consumer handler:" (ex-message e))
-    (.printStackTrace e ^java.io.PrintWriter *err*)))
+  (log/error e "Uncaught exception in consumer handler"))
 
 (defmacro with-commit-mode [[conn commit-mode] & body]
   `(if (= :tx-wrap ~commit-mode)
@@ -160,13 +159,11 @@
                              (catch InterruptedException _)
                              (catch Exception _))
                            (when-not (.isShutdown listener)
-                             (binding [*out* *err*]
-                               (println "Warning: Listener disconnected, reconnecting in " reconnect-ms "ms, " reconnects " previous attempts"))
+                             (log/warnf "Listener disconnected, reconnecting in %dms (%d previous attempts)" reconnect-ms reconnects)
                              (try (sleep reconnect-ms)
                                   (catch InterruptedException _))
                              (recur (inc reconnects))))))
         _ (.submit listener ^Callable listen-fn)]
     (when-not (deref listening? 100 false)
-      (binding [*out* *err*]
-        (println "Warning: Not listening after 100 ms")))
+      (log/warn "Not listening after 100 ms"))
     consumer))
