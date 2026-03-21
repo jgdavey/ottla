@@ -28,6 +28,13 @@
     "kebab-case"
     "bang!"))
 
+(deftest topic-name-collision-test
+  (postgres/create-topic *config* "my-topic")
+  (is (thrown-with-msg? clojure.lang.ExceptionInfo #"collision"
+                        (postgres/create-topic *config* "my_topic")))
+  (is (thrown-with-msg? clojure.lang.ExceptionInfo #"collision"
+                        (postgres/ensure-topic *config* "my_topic"))))
+
 (deftest topics-notify
   (let [topic "my-topic"]
     (pg/with-connection [conn2 th/conn-params]

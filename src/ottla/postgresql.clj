@@ -139,6 +139,11 @@ ON CONFLICT (topic, group_id) DO NOTHING")
         trigger-name (sql-entity (str (topic-table-name normalized-topic) "_trigger"))]
     (pg/with-connection [conn conn]
       (pg/with-transaction [conn conn]
+        (when-let [{existing-topic :topic} (first (honey/execute conn {:select [:topic]
+                                                                       :from [(keyword schema "topics")]
+                                                                       :where [:= :table_name table]}))]
+          (throw (ex-info "Topic name collision: normalized table name already in use"
+                          {:topic topic :collides-with existing-topic :table-name table})))
         (let [[row] (honey/execute conn {:insert-into (keyword schema "topics")
                                          :columns [:topic :table_name :key_type :value_type]
                                          :values [[topic table (name key-type) (name value-type)]]
