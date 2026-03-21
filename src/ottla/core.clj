@@ -49,6 +49,7 @@
     - `opts`     optional map containing any of the following keys:
        - `:value-type` column type for record values
        - `:key-type`   column type for record keys
+       - `:index-key?` when true, creates a btree index on the key column (default: false)
 
   Both key-type and value-type can be any of :bytea, :jsonb, or :text
 
@@ -58,7 +59,9 @@
   e.g., a transit serializer (supplied by you)
 
   :text works with textual serializers that return strings. The
-  built-in serializers :edn, :json, and :string all return strings."
+  built-in serializers :edn, :json, and :string all return strings.
+
+  Note: opts apply only at creation time and cannot be used to change an existing topic."
   [config topic & {:as opts}]
   (dissoc (postgres/create-topic config (name topic) opts) :table-name))
 
@@ -66,7 +69,8 @@
   "Find or create a topic. This takes the same arguments as `add-topic!`.
   If the topic already exists with the same key-type and value-type, returns
   it unchanged. Throws if the topic exists but was created with different
-  column types."
+  column types. Note: opts apply only at creation time and cannot be used
+  to change an existing topic."
   [config topic & {:as opts}]
   (dissoc (postgres/ensure-topic config (name topic) opts) :table-name))
 

@@ -55,6 +55,8 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
 
 (def brin-index-template "CREATE INDEX ON %s USING BRIN (timestamp)")
 
+(def btree-key-index-template "CREATE INDEX ON %s USING BTREE (key)")
+
 (defn trigger-function-name
   [schema]
   (sql-entity (str schema ".notify_subs")))
@@ -124,9 +126,10 @@ ON CONFLICT (topic, group_id) DO NOTHING")
 (def column-types #{:bytea :text :jsonb})
 
 (defn create-topic
-  [{:keys [conn schema]} topic & {:keys [key-type value-type] :as opts
+  [{:keys [conn schema]} topic & {:keys [key-type value-type index-key?] :as opts
                                   :or {key-type :bytea
-                                       value-type :bytea}}]
+                                       value-type :bytea
+                                       index-key? false}}]
   (when-not (contains? column-types key-type)
     (throw (IllegalArgumentException. (str "Invalid key-type " key-type "; must be one of " column-types))))
   (when-not (contains? column-types value-type)
@@ -156,6 +159,8 @@ ON CONFLICT (topic, group_id) DO NOTHING")
                                               [:key key-type]
                                               [:value value-type]]})
           (pg/query conn (format brin-index-template qtable-name))
+          (when index-key?
+            (pg/query conn (format btree-key-index-template qtable-name)))
           (pg/query conn (format trigger-template trigger-name qtable-name trigger-fn-name topic))
           (->topic-map row))))))
 
@@ -186,7 +191,8 @@ ON CONFLICT (topic, group_id) DO NOTHING")
 (defn ensure-topic
   "Fetch or create a topic. Returns the existing topic if it already exists
   with the same key-type and value-type. Throws if the topic exists but was
-  created with different column types."
+  created with different column types. Note: opts apply only at creation time
+  and cannot be used to change an existing topic."
   [{:keys [conn] :as config} topic-name & {:keys [key-type value-type] :as opts
                                            :or {key-type :bytea
                                                 value-type :bytea}}]
