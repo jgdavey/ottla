@@ -248,9 +248,7 @@
 (deftest test-ensure-topic
   (let [topic "theproblem"
         types  {:key-type :text :value-type :jsonb}
-        expected (merge {:topic topic
-                         :table-name (str "log__" topic)}
-                        types)]
+        expected (merge {:topic topic} types)]
     (is (= expected (ottla/ensure-topic *config* topic types)))
     (is (= expected (ottla/ensure-topic *config* topic types)))
     (is (thrown-with-msg? Exception #"definition differs"

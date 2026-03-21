@@ -60,7 +60,7 @@
   :text works with textual serializers that return strings. The
   built-in serializers :edn, :json, and :string all return strings."
   [config topic & {:as opts}]
-  (postgres/create-topic config (name topic) opts))
+  (dissoc (postgres/create-topic config (name topic) opts) :table-name))
 
 (defn ensure-topic
   "Find or create a topic. This takes the same arguments as `add-topic!`.
@@ -68,7 +68,7 @@
   it unchanged. Throws if the topic exists but was created with different
   column types."
   [config topic & {:as opts}]
-  (postgres/ensure-topic config (name topic) opts))
+  (dissoc (postgres/ensure-topic config (name topic) opts) :table-name))
 
 (defn list-topics
   "Returns a vector of all topics in the ottla schema, ordered by name.
