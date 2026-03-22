@@ -181,6 +181,42 @@
   [config selection handler & {:as opts}]
   (consumer/start-consumer config selection handler opts))
 
+(defn ensure-subscription
+  "Ensure a subscription exists for the given topic and group. If no subscription
+  exists, one is created. If one already exists, it is left unchanged.
+
+  Returns true if a new subscription was created, false if one already existed.
+
+  `selection` is a topic name (string) or map with:
+    - `:topic`  (required) topic name
+    - `:group`  consumer group id (default: \"default\")
+
+  Options:
+    - `:from`  starting position when a new subscription is created:
+                 - `:earliest`  start from the beginning of the topic (default)
+                 - `:latest`    start from the current end of the topic (skips existing records)
+                 - nat-int?     start from a specific eid"
+  [config selection & {:keys [from]}]
+  (postgres/ensure-subscription config (postgres/normalize-selection selection) {:from from}))
+
+(defn add-subscription!
+  "Create a new subscription for the given topic and group. Throws if a
+  subscription already exists for this topic and group.
+
+  Returns true if the subscription was created.
+
+  `selection` is a topic name (string) or map with:
+    - `:topic`  (required) topic name
+    - `:group`  consumer group id (default: \"default\")
+
+  Options:
+    - `:from`  starting position:
+                 - `:earliest`  start from the beginning of the topic (default)
+                 - `:latest`    start from the current end of the topic (skips existing records)
+                 - nat-int?     start from a specific eid"
+  [config selection & {:keys [from]}]
+  (postgres/create-subscription config (postgres/normalize-selection selection) {:from from}))
+
 (defn commit-offset!
   "Only use with consumer tx-mode `:manual`.
 

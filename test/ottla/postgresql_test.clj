@@ -158,6 +158,39 @@
                                                  (.isZero %)) "Duration")}]
                   result)))))
 
+(deftest ensure-and-create-subscription-test
+  (let [topic "events"
+        _ (postgres/create-topic *config* topic :key-type :text :value-type :text)
+        _ (postgres/insert-records *config* topic (mapv (fn [k] {:key k :value k})
+                                                        ["a" "b" "c" "d" "e"]))
+        sel (postgres/normalize-selection topic)
+        sel-group (postgres/normalize-selection {:topic topic :group "other"})]
+
+    (testing "ensure-subscription: creates new subscription at :earliest by default"
+      (is (= true (postgres/ensure-subscription *config* sel)))
+      (is (= 5 (count (postgres/fetch-records! *config* sel)))))
+
+    (testing "ensure-subscription: idempotent when subscription already exists"
+      (is (= false (postgres/ensure-subscription *config* sel)))
+      (is (= false (postgres/ensure-subscription *config* sel :from :latest))))
+
+    (testing "ensure-subscription :from :latest starts at max eid"
+      (is (= true (postgres/ensure-subscription *config* sel-group :from :latest)))
+      (is (= [] (postgres/fetch-records! *config* sel-group))))
+
+    (testing "ensure-subscription :from <eid> starts at specific eid"
+      (let [sel-specific (postgres/normalize-selection {:topic topic :group "specific"})]
+        (is (= true (postgres/ensure-subscription *config* sel-specific :from 3)))
+        (is (= 2 (count (postgres/fetch-records! *config* sel-specific))))))
+
+    (testing "create-subscription: creates new subscription"
+      (let [sel-new (postgres/normalize-selection {:topic topic :group "new-group"})]
+        (is (= true (postgres/create-subscription *config* sel-new :from :latest)))))
+
+    (testing "create-subscription: throws if subscription already exists"
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"already exists"
+                            (postgres/create-subscription *config* sel))))))
+
 (deftest trim-topic-test
   (let [topic "events"
         _ (postgres/create-topic *config* topic :key-type :text :value-type :text)

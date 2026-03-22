@@ -181,6 +181,24 @@
                :selection :ottla/selection
                :new-offset nat-int?))
 
+;;; Subscriptions
+
+(s/def :ottla.subscription/from
+  (s/or :keyword #{:earliest :latest}
+        :eid nat-int?))
+
+(s/fdef ottla/ensure-subscription
+  :args (s/cat :config :ottla/config
+               :selection :ottla/selection
+               :opts (s/keys* :opt-un [:ottla.subscription/from]))
+  :ret boolean?)
+
+(s/fdef ottla/add-subscription!
+  :args (s/cat :config :ottla/config
+               :selection :ottla/selection
+               :opts (s/keys* :opt-un [:ottla.subscription/from]))
+  :ret true?)
+
 ;;; Monitoring
 
 (s/def :ottla.subscription/group string?)

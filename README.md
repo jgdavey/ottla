@@ -282,6 +282,40 @@ consumer group's offset before starting (or while stopped):
 (ottla/reset-consumer-offset! config {:topic "my-new-topic" :group "default"} 42)
 ```
 
+#### Managing subscriptions explicitly
+
+`start-consumer` creates a subscription automatically if none exists, starting from the
+beginning of the topic. To control the starting position before a consumer runs, use
+`ensure-subscription` or `add-subscription!`.
+
+`ensure-subscription` is idempotent — it creates the subscription if it doesn't exist and
+does nothing if it already does. By default (`:from :earliest`), a newly created
+subscription starts at the beginning of the topic and will receive all existing records:
+
+```clojure
+;; Create a subscription starting from the beginning (default)
+(ottla/ensure-subscription config "my-new-topic")
+
+;; Create a subscription starting from the current end (skip existing records)
+(ottla/ensure-subscription config {:topic "my-new-topic" :group "processor"} :from :latest)
+
+;; Create a subscription starting from a specific eid
+(ottla/ensure-subscription config {:topic "my-new-topic" :group "processor"} :from 42)
+```
+
+`add-subscription!` is the strict variant — it throws if a subscription already exists:
+
+```clojure
+(ottla/add-subscription! config {:topic "my-new-topic" :group "new-group"} :from :latest)
+;; => true
+
+(ottla/add-subscription! config {:topic "my-new-topic" :group "new-group"} :from :latest)
+;; => throws: Subscription already exists
+```
+
+The `:from` option only applies at creation time. `:latest` is useful when you want a new
+consumer group to process only future records, ignoring the existing backlog.
+
 ### Monitoring
 
 `list-subscriptions` returns all consumer group offsets along with the current max eid and calculated lag for each:

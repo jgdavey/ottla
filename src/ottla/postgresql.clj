@@ -74,13 +74,23 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
   [topic]
   (str "log__" topic))
 
-(def ^:private ensure-subs-sql
-  "INSERT INTO %s(topic, group_id)
-SELECT $1, $2
-WHERE NOT EXISTS (
-  select 1 from %s where topic=$1 AND group_id=$2
-)
-ON CONFLICT (topic, group_id) DO NOTHING")
+(declare fetch-topic)
+
+(defn- resolve-cursor
+  "Resolve a :from option to a cursor value. Must be called with an active conn in config."
+  [{:keys [conn schema] :as config} topic-name from]
+  (cond
+    (or (nil? from) (= :earliest from)) 0
+    (= :latest from) (let [{:keys [table-name]} (fetch-topic config topic-name)
+                           qtable (keyword schema table-name)]
+                       (or (:maxeid (first (honey/execute conn
+                                                         {:select [[[:coalesce [[:max :eid]] [:inline 0]] :maxeid]]
+                                                          :from qtable})))
+                           0))
+    (nat-int? from) from
+    :else (throw (IllegalArgumentException.
+                  (str "Invalid :from value: " (pr-str from)
+                       "; expected :earliest, :latest, or a non-negative integer")))))
 
 (def default-subscription-group "default")
 
@@ -369,11 +379,45 @@ ON CONFLICT (topic, group_id) DO NOTHING")
                             (mapv :value conformed)]}))))
 
 (defn ensure-subscription
-  [{:keys [conn schema]} {:keys [topic group]}]
-  (let [subs-table (sql-entity (keyword schema "subs"))
-        sql (format ensure-subs-sql subs-table subs-table)
-        result (pg/execute conn sql {:params [topic group]})]
-    (= 1 (-> result :inserted))))
+  "Create a subscription for topic/group if one does not already exist.
+  Returns true if created, false if it already existed. The :from option
+  only applies when creating; an existing subscription is not modified."
+  [{:keys [conn schema] :as config} {:keys [topic group]} & {:keys [from]}]
+  (pg/with-connection [conn conn]
+    (pg/with-transaction [conn conn]
+      (let [config (assoc config :conn conn)
+            cursor (resolve-cursor config topic from)
+            subs-table (keyword schema "subs")
+            sql {:insert-into [[subs-table [:topic :group_id :cursor]]
+                               {:select [topic group cursor]
+                                :where [:not [:exists {:select [[[:inline 1]]]
+                                                       :from [subs-table]
+                                                       :where [:and [:= :topic topic]
+                                                               [:= :group_id group]]}]]}]
+                 :on-conflict [:topic :group_id]
+                 :do-nothing true}
+            result (honey/execute conn sql)]
+        (= 1 (-> result :inserted))))))
+
+(defn create-subscription
+  "Create a subscription for topic/group. Throws ex-info with
+  {:topic ... :group ...} if a subscription already exists."
+  [{:keys [conn schema] :as config} {:keys [topic group]} & {:keys [from]}]
+  (pg/with-connection [conn conn]
+    (pg/with-transaction [conn conn]
+      (let [config (assoc config :conn conn)
+            subs-table (keyword schema "subs")]
+        (when (seq (honey/execute conn {:select [[[:inline 1]]]
+                                        :from [subs-table]
+                                        :where [:and [:= :topic topic]
+                                                [:= :group_id group]]
+                                        :for :update}))
+          (throw (ex-info "Subscription already exists" {:topic topic :group group})))
+        (let [cursor (resolve-cursor config topic from)]
+          (honey/execute conn {:insert-into subs-table
+                               :columns [:topic :group_id :cursor]
+                               :values [[topic group cursor]]})
+          true)))))
 
 (defn- fetch-records
   [{:keys [conn schema]} {:keys [topic min max limit xf]}]
