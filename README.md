@@ -3,6 +3,51 @@ Ottla
 
 Franz Kafka's favorite sister
 
+## Glossary
+
+- **Topic** — A named, append-only log of records. Analogous to a
+Kafka topic or a database table. Each topic has a backing PostgreSQL
+table with a monotonically increasing `eid` (event id) as its primary
+key.
+
+- **Record** — A single entry in a topic, consisting of a `key`, a
+`value`, optional `meta` (jsonb), a `timestamp`, and an `eid`. Records
+are immutable once written.
+
+- **eid** — Event id. A sequence number assigned to each record within
+a topic, starting at 1. Eids are monotonically increasing within a
+topic.
+
+- **Producer** — Any caller that appends records to a topic via
+`append!` or `append-one!`.
+
+- **Consumer** — A long-running process that reads records from
+a topic and processes them via a handler function. Managed by
+`start-consumer`.
+
+- **Consumer group** — A named set of consumers sharing the same
+offset within a topic. Identified by the `:group` key in a selection.
+Multiple independent groups can read the same topic, each maintaining
+its own position. A consumer group has a one-to-one relationship with
+the subscription.
+
+- **Subscription** — A record in the `subs` table that tracks the
+current read position (cursor/offset) of a consumer group within a
+topic. Created automatically by `start-consumer`, or explicitly with
+`ensure-subscription` / `add-subscription!`.
+
+- **Offset** — The `eid` of the last record successfully processed
+by a consumer group, stored in the subscription record. The next
+fetch will return records with `eid > offset`. An offset of `0` means
+nothing has been consumed yet.
+
+- **Lag** — The number of records a consumer group has not yet
+processed: `topic-eid − offset`. A lag of `0` means the consumer is
+fully caught up.
+
+- **Serializer / Deserializer** — Functions that convert between
+Clojure values and the column type stored in PostgreSQL (`:bytea`,
+`:text`, or `:jsonb`). Built-in options: `:string`, `:json`, `:edn`.
 ## Usage
 
 All of the examples assume the following require:
@@ -94,7 +139,8 @@ be removed immediately.
 
 ### Log retention
 
-For long-running topics, use `trim-topic!` to delete old records and prevent unbounded table growth. Exactly one mode must be provided:
+For long-running topics, use `trim-topic!` to delete old records and
+prevent unbounded table growth. Exactly one mode must be provided:
 
 ```clojure
 ;; Delete all records with eid less than 1000
@@ -110,7 +156,10 @@ For long-running topics, use `trim-topic!` to delete old records and prevent unb
 
 `trim-topic!` returns the number of records deleted.
 
-By default, the deletion is clamped to the minimum subscription cursor across all consumer groups. This prevents deleting records that have not yet been consumed. Pass `:ignore-subscriptions? true` to delete unconditionally:
+By default, the deletion is clamped to the minimum subscription cursor
+across all consumer groups. This prevents deleting records that have
+not yet been consumed. Pass `:ignore-subscriptions? true` to delete
+unconditionally:
 
 ```clojure
 ;; Delete unconditionally, regardless of subscriber position
@@ -122,7 +171,8 @@ Only the most recent record will be retained from the above.
 ### Producing data
 
 
-To add to a topic's log, call `append!` with records, which are maps like the following:
+To add to a topic's log, call `append!` with records, which are maps
+like the following:
 
 - `:key` - data key
 - `:value` - data value
@@ -157,7 +207,8 @@ As a simple example, here's an edn serializer and deserializer:
     (clojure.edn/read rdr)))
 ```
 
-So, assuming these serializing functions, here's how we might insert edn data into a topic:
+So, assuming these serializing functions, here's how we might insert
+edn data into a topic:
 
 ```clojure
 (ottla/append! config "my-new-topic"
@@ -338,7 +389,8 @@ consumer group to process only future records, ignoring the existing backlog.
 - `:processing-delay` is a `java.time.Duration` from when the last consumed record was published to when the consumer committed it; `nil` if `:updated-at` or `:timestamp` is `nil`
 - Topics with no subscriptions do not appear in this list
 
-`topic-subscriptions` returns the same information grouped by topic. Every topic appears in the result, even those with no subscribers:
+`topic-subscriptions` returns the same information grouped by topic.
+Every topic appears in the result, even those with no subscribers:
 
 ```clojure
 (ottla/with-connected-config [config {,,,}]
@@ -355,4 +407,6 @@ consumer group to process only future records, ignoring the existing backlog.
 ;;      :subscriptions []} ,,,]
 ```
 
-The subscription maps inside `:subscriptions` carry the same keys as `list-subscriptions` entries, minus `:topic` (which is on the outer map).
+The subscription maps inside `:subscriptions` carry the same keys as
+`list-subscriptions` entries, minus `:topic` (which is on the outer
+map).
