@@ -327,7 +327,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                      :timestamp-lag (when (and timestamp topic_timestamp)
                                       (Duration/between timestamp topic_timestamp))
                      :processing-delay (when (and updated_at timestamp)
-                                         (Duration/between updated_at timestamp))})))
+                                         (Duration/between timestamp updated_at))})))
             queries))))
 
 (defn topic-subscriptions
