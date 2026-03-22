@@ -158,6 +158,44 @@
                                                  (.isZero %)) "Duration")}]
                   result)))))
 
+(deftest list-subscriptions-filtering-test
+  (let [t1 "alpha"
+        t2 "beta"
+        t3 "no-subs"
+        _ (postgres/create-topic *config* t1 :key-type :text :value-type :text)
+        _ (postgres/create-topic *config* t2 :key-type :text :value-type :text)
+        _ (postgres/create-topic *config* t3 :key-type :text :value-type :text)]
+    (postgres/fetch-records! *config* {:topic t1 :group "g1"})
+    (postgres/fetch-records! *config* {:topic t1 :group "g2"})
+    (postgres/fetch-records! *config* {:topic t2 :group "g1"})
+
+    (testing "no filter returns all subscriptions (no topics that don't have subscriptions)"
+      (is (= 3 (count (postgres/list-subscriptions *config*)))))
+
+    (testing "filter by topic string returns all groups for that topic"
+      (let [result (postgres/list-subscriptions *config* {:selections [t1]})]
+        (is (= 2 (count result)))
+        (is (every? #(= t1 (:topic %)) result))))
+
+    (testing "filter by selection map with group returns only that group"
+      (let [result (postgres/list-subscriptions *config* {:selections [{:topic t1 :group "g1"}]})]
+        (is (= 1 (count result)))
+        (is (= "g1" (:group (first result))))))
+
+    (testing "multiple selections across topics"
+      (let [result (postgres/list-subscriptions *config* {:selections [t1 {:topic t2 :group "g1"}]})]
+        (is (= 3 (count result)))))
+
+    (testing "topic-subscriptions with topic filter shows only specified topics"
+      (let [result (postgres/topic-subscriptions *config* {:selections [t1]})]
+        (is (= [t1] (mapv :topic result)))))
+
+    (testing "topic-subscriptions with group filter narrows subscriptions"
+      (let [result (postgres/topic-subscriptions *config* {:selections [{:topic t1 :group "g1"}]})]
+        (is (= 1 (count result)))
+        (is (= 1 (count (:subscriptions (first result)))))
+        (is (= "g1" (:group (first (:subscriptions (first result))))))))))
+
 (deftest ensure-and-create-subscription-test
   (let [topic "events"
         _ (postgres/create-topic *config* topic :key-type :text :value-type :text)

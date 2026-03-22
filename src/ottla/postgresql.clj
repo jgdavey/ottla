@@ -251,19 +251,37 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
               (throw (ex-info "Topic definition differs from stored" {:stored stored, :passed passed}))))
           (create-topic config topic-name opts))))))
 
+(defn- parse-selections
+  "Parse a collection of selections (strings or {:topic :group?} maps) into
+  a map of topic-name -> set-of-groups-or-nil (nil means all groups for that topic)."
+  [selections]
+  (when (seq selections)
+    (reduce (fn [acc sel]
+              (let [topic (if (string? sel) sel (:topic sel))
+                    group (when (map? sel) (:group sel))]
+                (cond
+                  (and (contains? acc topic) (nil? (get acc topic))) acc
+                  (nil? group) (assoc acc topic nil)
+                  :else (update acc topic (fnil conj #{}) group))))
+            {}
+            selections)))
+
 (defn list-subscriptions
   [{:keys [conn schema]}
-   & [{:keys [topics]}]]
+   & [{:keys [selections]}]]
   (pg/with-connection [conn conn]
     (let [subs-table (keyword schema "subs")
           topics-table (keyword schema "topics")
+          sel-map (parse-selections selections)
+          topic-names (some-> sel-map keys vec)
           tt (honey/execute conn
                             (cond->
                              {:select [:t.topic :t.table_name]
                               :from [[topics-table :t]]}
-                              topics (assoc :where [:= :t.topic [:any [:lift (vec topics)]]])))
+                              topic-names (assoc :where [:= :t.topic [:any [:lift topic-names]]])))
           queries (mapv (fn [{:keys [topic table_name]}]
-                          (let [qtable (keyword schema table_name)]
+                          (let [qtable (keyword schema table_name)
+                                groups (when sel-map (get sel-map topic))]
                             {:with [[:m
                                      {:select [[:eid :maxeid]
                                                [:timestamp :maxts]]
@@ -276,10 +294,11 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                                       [[:nullif :s.updated_at negative-infinity] :updated_at]
                                       [:t.timestamp :timestamp]
                                       [:maxts :topic_timestamp]
-                                      [:maxeid :topic_eid]
-                                      [[:- :maxeid :s.cursor] :lag]]
-                             :from [[subs-table :s] :m]
-                             :left-join [[[:lateral
+                                      [[:coalesce :maxeid [:inline 0]] :topic_eid]
+                                      [[:- [:coalesce :maxeid [:inline 0]] :s.cursor] :lag]]
+                             :from [[subs-table :s]]
+                             :left-join [:m true
+                                         [[:lateral
                                            {:select [:eid :timestamp]
                                             :from [[qtable :l]]
                                             :where [:<= :l.eid :s.cursor]
@@ -287,7 +306,10 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                                             :limit [:inline 1]}]
                                           :t]
                                          true]
-                             :where [:= :s.topic topic]}))
+                             :where (if (seq groups)
+                                      [:and [:= :s.topic topic]
+                                            [:= :s.group_id [:any [:lift (vec groups)]]]]
+                                      [:= :s.topic topic])}))
                         tt)]
       (into []
             (comp
@@ -329,11 +351,16 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
     - :timestamp-lag     java.time.Duration between subscription and topic timestamps (nil if either is nil)
     - :processing-delay  java.time.Duration from publish time to consumer commit for the most
                          recently consumed record (nil if either :updated-at or :timestamp is nil)"
-  [{:keys [conn] :as config}]
+  [{:keys [conn] :as config} & [{:keys [selections]}]]
   (pg/with-connection [conn conn]
     (let [config (assoc config :conn conn)
-          topics (list-topics config)
-          subs (list-subscriptions config {})
+          sel-map (parse-selections selections)
+          topic-names (some-> sel-map keys set)
+          all-topics (list-topics config)
+          topics (if topic-names
+                   (filterv #(contains? topic-names (:topic %)) all-topics)
+                   all-topics)
+          subs (list-subscriptions config (when selections {:selections selections}))
           subs-by-topic (group-by :topic subs)]
       (mapv (fn [{:keys [topic]}]
               {:topic topic

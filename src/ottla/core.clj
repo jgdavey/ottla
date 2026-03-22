@@ -95,9 +95,12 @@
     - :processing-delay  java.time.Duration from publish time to consumer commit for the most
                          recently consumed record (nil if either :updated-at or :timestamp is nil)
 
-   Options:
-    - `:topics`  a collection of topic names to filter by. When
-                 not specified, all topics will be fetched"
+  Options:
+    - `:selections`  a collection of filters; each item is either a topic name string
+                     (all groups for that topic) or a map with:
+                       - `:topic`  (required) topic name
+                       - `:group`  consumer group id; when omitted, all groups for the topic are returned
+                     When not provided, all subscriptions are returned."
   [config & {:as opts}]
   (postgres/list-subscriptions config opts))
 
@@ -121,9 +124,16 @@
     - :topic-timestamp   java.time.Instant of the latest record in the topic (nil if empty)
     - :timestamp-lag     java.time.Duration between subscription and topic timestamps (nil if either is nil)
     - :processing-delay  java.time.Duration from publish time to consumer commit for the most
-                         recently consumed record (nil if either :updated-at or :timestamp is nil)"
-  [config]
-  (postgres/topic-subscriptions config))
+                         recently consumed record (nil if either :updated-at or :timestamp is nil)
+
+  Options:
+    - `:selections`  a collection of filters; each item is either a topic name string
+                     (all groups for that topic) or a map with:
+                       - `:topic`  (required) topic name
+                       - `:group`  consumer group id; when omitted, all groups for the topic are returned
+                     When not provided, all topics and their subscriptions are returned."
+  [config & {:as opts}]
+  (postgres/topic-subscriptions config opts))
 
 (defn remove-topic!
   "Remove a topic. Warning: permanently and immediately removes all records for the topic.

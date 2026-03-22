@@ -223,11 +223,17 @@
                    :ottla.subscription/timestamp-lag
                    :ottla.subscription/processing-delay]))
 
-(s/def :ottla.list-subscriptions/topics (s/coll-of string?))
+(s/def :ottla.list-subscriptions/selection-item
+  (s/or :topic-name string?
+        :map (s/keys :req-un [:ottla.selection/topic]
+                     :opt-un [:ottla.selection/group])))
+
+(s/def :ottla.list-subscriptions/selections
+  (s/coll-of :ottla.list-subscriptions/selection-item))
 
 (s/fdef ottla/list-subscriptions
   :args (s/cat :config :ottla/config
-               :opts (s/keys* :opt-un [:ottla.list-subscriptions/topics]))
+               :opts (s/keys* :opt-un [:ottla.list-subscriptions/selections]))
   :ret (s/coll-of :ottla/subscription))
 
 (s/def :ottla/topic-with-subscriptions
@@ -246,5 +252,6 @@
                                :ottla.subscription/processing-delay])))
 
 (s/fdef ottla/topic-subscriptions
-  :args (s/cat :config :ottla/config)
+  :args (s/cat :config :ottla/config
+               :opts (s/keys* :opt-un [:ottla.list-subscriptions/selections]))
   :ret (s/coll-of :ottla/topic-with-subscriptions))
