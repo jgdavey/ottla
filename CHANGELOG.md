@@ -5,6 +5,16 @@ This change log follows the conventions of [keepachangelog.com](http://keepachan
 
 ## [Unreleased]
 
+### Added
+
+* New function `ottla.core/ensure-subscription`
+* New function `ottla.core/add-subscription!` for explicit subscription creation
+* New function `ottla.core/remove-subscription!` to delete a consumer group subscription
+
+### Changed
+
+* Use `:selections` options instead of `:topics` for `list-subscriptions` and `topic-subscriptions`
+
 ## [0.4.0] - 2026-03-21
 
 ### Added
