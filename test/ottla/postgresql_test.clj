@@ -229,6 +229,23 @@
       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"already exists"
                             (postgres/create-subscription *config* sel))))))
 
+(deftest delete-subscription-test
+  (let [topic "events"
+        _ (postgres/create-topic *config* topic :key-type :text :value-type :text)
+        sel (postgres/normalize-selection topic)
+        sel-other (postgres/normalize-selection {:topic topic :group "other"})]
+    (postgres/ensure-subscription *config* sel)
+    (postgres/ensure-subscription *config* sel-other)
+
+    (testing "returns true when subscription existed and is removed"
+      (is (= true (postgres/delete-subscription *config* sel))))
+
+    (testing "subscription is gone from list-subscriptions"
+      (is (= ["other"] (mapv :group (postgres/list-subscriptions *config*)))))
+
+    (testing "returns false when subscription does not exist"
+      (is (= false (postgres/delete-subscription *config* sel))))))
+
 (deftest trim-topic-test
   (let [topic "events"
         _ (postgres/create-topic *config* topic :key-type :text :value-type :text)

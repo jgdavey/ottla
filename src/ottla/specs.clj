@@ -199,6 +199,11 @@
                :opts (s/keys* :opt-un [:ottla.subscription/from]))
   :ret true?)
 
+(s/fdef ottla/remove-subscription!
+  :args (s/cat :config :ottla/config
+               :selection :ottla/selection)
+  :ret boolean?)
+
 ;;; Monitoring
 
 (s/def :ottla.subscription/group string?)

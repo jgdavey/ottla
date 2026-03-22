@@ -227,6 +227,16 @@
   [config selection & {:keys [from]}]
   (postgres/create-subscription config (postgres/normalize-selection selection) {:from from}))
 
+(defn remove-subscription!
+  "Delete the subscription for the given topic and group. Returns true if the
+  subscription existed and was removed, false if no subscription was found.
+
+  `selection` is a topic name (string) or map with:
+    - `:topic`  (required) topic name
+    - `:group`  consumer group id (default: \"default\")"
+  [config selection]
+  (postgres/delete-subscription config (postgres/normalize-selection selection)))
+
 (defn commit-offset!
   "Only use with consumer tx-mode `:manual`.
 

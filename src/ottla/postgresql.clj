@@ -446,6 +446,16 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                                :values [[topic group cursor]]})
           true)))))
 
+(defn delete-subscription
+  "Delete a subscription for topic/group. Returns true if a subscription was
+  deleted, false if none existed."
+  [{:keys [conn schema]} {:keys [topic group]}]
+  (pg/with-connection [conn conn]
+    (let [result (honey/execute conn {:delete-from (keyword schema "subs")
+                                      :where [:and [:= :topic topic]
+                                              [:= :group_id group]]})]
+      (= 1 (:deleted result)))))
+
 (defn- fetch-records
   [{:keys [conn schema]} {:keys [topic min max limit xf]}]
   (let [xf (or xf identity)
