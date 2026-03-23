@@ -48,6 +48,7 @@ fully caught up.
 - **Serializer / Deserializer** — Functions that convert between
 Clojure values and the column type stored in PostgreSQL (`:bytea`,
 `:text`, or `:jsonb`). Built-in options: `:string`, `:json`, `:edn`.
+
 ## Usage
 
 All of the examples assume the following require:
@@ -139,8 +140,9 @@ be removed immediately.
 
 ### Log retention
 
-For long-running topics, use `trim-topic!` to delete old records and
-prevent unbounded table growth. Exactly one mode must be provided:
+Often, you can retain all messages for a given topic. If there's a
+need to prune old records, use `trim-topic!`. Exactly one mode must be
+provided:
 
 ```clojure
 ;; Delete all records with eid less than 1000
