@@ -83,18 +83,17 @@
 (defn list-subscriptions
   "Returns a vector of all subscriptions, ordered by topic and group.
   Each subscription is a map with:
-    - :topic             the topic name
-    - :group             the consumer group id
-    - :offset            the last committed eid for this group
-    - :topic-eid         the highest eid available in the topic
-    - :lag               the number of unread records (topic-eid - offset)
-    - :updated-at        java.time.Instant of the last offset commit (nil if never committed)
-    - :timestamp         java.time.Instant of the last consumed record (nil if offset is 0)
-    - :topic-timestamp   java.time.Instant of the latest record in the topic (nil if empty)
-    - :timestamp-lag     java.time.Duration between subscription and topic timestamps (nil if either is nil)
-    - :processing-delay  java.time.Duration from publish time to consumer commit for the most
-                         recently consumed record (nil if either :updated-at or :timestamp is nil)
-
+    - `:topic`             the topic name
+    - `:group`             consumer group id
+    - `:offset`            last committed eid for this group
+    - `:topic-eid`         highest eid available in the topic
+    - `:lag`               number of unread records (topic-eid - offset)
+    - `:updated-at`        java.time.Instant of the last offset commit (nil if never committed)
+    - `:timestamp`         java.time.Instant of the last consumed record (nil if offset is 0)
+    - `:topic-timestamp`   java.time.Instant of the latest record in the topic (nil if empty)
+    - `:timestamp-lag`     java.time.Duration between subscription and topic timestamps (nil if either is nil)
+    - `:processing-delay`  java.time.Duration from publish time to consumer commit for the most
+                           recently consumed record (nil if either :updated-at or :timestamp is nil)
   Options:
     - `:selections`  a collection of filters; each item is either a topic name string
                      (all groups for that topic) or a map with:
@@ -110,21 +109,11 @@
   it has no subscribers.
 
   Each entry is a map with:
-    - :topic          the topic name
-    - :subscriptions  a vector of subscription maps (empty when no subscribers)
+    - `:topic`          the topic name
+    - `:subscriptions`  a vector of subscription maps (empty when no subscribers)
 
   Each subscription map contains the same keys as `list-subscriptions` (except
-  :topic, which is on the outer map):
-    - :group             consumer group id
-    - :offset            last committed eid for this group
-    - :topic-eid         highest eid available in the topic
-    - :lag               number of unread records (topic-eid - offset)
-    - :updated-at        java.time.Instant of the last offset commit (nil if never committed)
-    - :timestamp         java.time.Instant of the last consumed record (nil if offset is 0)
-    - :topic-timestamp   java.time.Instant of the latest record in the topic (nil if empty)
-    - :timestamp-lag     java.time.Duration between subscription and topic timestamps (nil if either is nil)
-    - :processing-delay  java.time.Duration from publish time to consumer commit for the most
-                         recently consumed record (nil if either :updated-at or :timestamp is nil)
+  `:topic`, which is on the outer map)
 
   Options:
     - `:selections`  a collection of filters; each item is either a topic name string
