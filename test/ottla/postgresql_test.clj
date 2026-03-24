@@ -13,6 +13,28 @@
   th/config-fixture
   th/connection-fixture)
 
+(deftest normalize-identifier-name-test
+  (are [topic expected] (= expected (postgres/normalize-identifier-name topic))
+    "events"        "events"
+    "my-topic"      "my-topic"
+    "my.topic"      "my-topic"
+    "my-topic.v2"   "my-topic-v2"
+    "snake_case"    "snake_case"
+    "MixedCase"     "mixedcase"
+    "has Spaces"    "has-spaces"
+    "special!@#$%"  "special"))
+
+(deftest topic-table-name-test
+  (are [topic expected] (= expected (postgres/topic-table-name topic))
+    "events"        "log__events"
+    "my-topic"      "log__my_topic"
+    "my.topic"      "log__my_topic"
+    "my-topic.v2"   "log__my_topic_v2"
+    "snake_case"    "log__snake_case"
+    "MixedCase"     "log__mixedcase"
+    "has Spaces"    "log__has_spaces"
+    "special!@#$%"  "log__special"))
+
 (deftest legal-identifier-test
   (are [id] (postgres/legal-identifier? id)
     "ottla"

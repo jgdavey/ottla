@@ -63,16 +63,21 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
   [schema]
   (sql-entity (str schema ".notify_subs")))
 
-(defn normalize-topic-name
+(defn normalize-identifier-name
   [topic]
+  ;; Used to normalize both topic table name and identifiers for threads
   (-> topic
-      (str/replace \- \_)
-      (str/replace \. \_)
-      (str/replace #"[^\w\.]" "")))
+      str/lower-case
+      (str/replace \. \-)
+      (str/replace #"\s+" "-")
+      (str/replace #"[^\w\.\-]" "")))
 
 (defn topic-table-name
   [topic]
-  (str "log__" topic))
+  (let [normalized (-> topic
+                       normalize-identifier-name
+                       (str/replace \- \_))]
+    (str "log__" normalized)))
 
 (declare fetch-topic)
 
@@ -147,12 +152,11 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
     (throw (IllegalArgumentException. (str "Invalid key-type " key-type "; must be one of " column-types))))
   (when-not (contains? column-types value-type)
     (throw (IllegalArgumentException. (str "Invalid value-type " value-type "; must be one of " column-types))))
-  (let [normalized-topic (normalize-topic-name topic)
-        table (topic-table-name normalized-topic)
+  (let [table (topic-table-name topic)
         qtable (keyword schema table)
         qtable-name (sql-entity qtable)
         trigger-fn-name (trigger-function-name schema)
-        trigger-name (sql-entity (str (topic-table-name normalized-topic) "_trigger"))]
+        trigger-name (sql-entity (str table "_trigger"))]
     (pg/with-connection [conn conn]
       (pg/with-transaction [conn conn]
         (when-let [{existing-topic :topic} (first (honey/execute conn {:select [:topic]
@@ -464,7 +468,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
 (defn- fetch-records
   [{:keys [conn schema]} {:keys [topic min max limit xf]}]
   (let [xf (or xf identity)
-        table (keyword schema (topic-table-name (normalize-topic-name topic)))]
+        table (keyword schema (topic-table-name topic))]
     (honey/execute conn (cond-> {:select [:* [topic :topic]]
                                  :from [[table :t]]
                                  :where (cond-> [:and [:> :eid min]]
