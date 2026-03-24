@@ -9,6 +9,7 @@
             Executors
             ScheduledExecutorService
             ExecutorService
+            ThreadFactory
             ThreadPoolExecutor
             ThreadPoolExecutor$DiscardOldestPolicy
             TimeUnit
@@ -19,6 +20,17 @@
 
 (defn sleep [^long ms]
   (Thread/sleep ms))
+
+(defn- thread-factory
+  ^ThreadFactory [^String name]
+  (let [counter (java.util.concurrent.atomic.AtomicInteger.)]
+    (reify ThreadFactory
+      (newThread [_ r]
+        (doto (Thread. r (str name "-" (.getAndIncrement counter)))
+          (.setDaemon true))))))
+
+(defn- ->thread-prefix [{:keys [topic group]}]
+  (str "ottla-" (postgres/normalize-identifier-name topic) "-" (postgres/normalize-identifier-name group)))
 
 (defprotocol IShutdown
   (graceful-shutdown [_])
@@ -117,12 +129,16 @@
         _ (assert (contains? postgres/commit-modes
                              (:commit-mode selection)) "unknown commit-mode")
         _ (postgres/ensure-subscription config selection)
-        ^ScheduledExecutorService poller (Executors/newSingleThreadScheduledExecutor)
+        thread-prefix (->thread-prefix selection)
+        ^ScheduledExecutorService poller (Executors/newSingleThreadScheduledExecutor
+                                          (thread-factory (str thread-prefix "-poller")))
         ^ExecutorService worker (-> (ThreadPoolExecutor. 1 1 0 TimeUnit/MILLISECONDS
                                                          (ArrayBlockingQueue. 1)
+                                                         (thread-factory (str thread-prefix "-worker"))
                                                          (ThreadPoolExecutor$DiscardOldestPolicy.))
                                     (Executors/unconfigurableExecutorService))
-        ^ExecutorService listener (Executors/newSingleThreadExecutor)
+        ^ExecutorService listener (Executors/newSingleThreadExecutor
+                                    (thread-factory (str thread-prefix "-listener")))
         stats (atom {:record-count 0
                      :last-processed-at nil})
         consumer (Consumer. poller worker listener conn await-close-ms selection stats)
