@@ -13,6 +13,7 @@ This change log follows the conventions of [keepachangelog.com](http://keepachan
 
 ### Changed
 
+* `(status consumer)` now returns a map with `:state`, `:topic`, `:group`, `:record-count`, and `:last-processed-at`
 * `append!` and `append-one!` now return the largest eid inserted
 * `commit-offset!` and `reset-consumer-offset!` now return a boolean indicating whether the subscription was updated
 * `reset-consumer-offset!` now effectively nullifies `updated_at` for more consistent reporting

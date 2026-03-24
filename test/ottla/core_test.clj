@@ -6,6 +6,8 @@
             [ottla.consumer :as consumer]
             [ottla.specs]
             [clojure.spec.gen.alpha :as gen]
+            [matcher-combinators.test]
+            [matcher-combinators.matchers :as m]
             [pg.core :as pg]))
 
 (def max-wait-ms 150)
@@ -37,7 +39,13 @@
       (ottla/append! *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn-bytea
                                                           :serialize-value serialize-edn-bytea})
       (is (= :received (deref p max-wait-ms :timed-out)))
-      (is (= (str consumer) "Consumer[:running]")))
+      (is (= (str consumer) "Consumer[:running]"))
+      (is (match? {:state :running
+                   :topic topic
+                   :group "default"
+                   :record-count 1
+                   :last-processed-at (m/pred #(instance? java.time.Instant %))}
+                  (consumer/status consumer))))
     (is (= [] (mapv Throwable->map @ex)))
     (is (= [{:meta nil :key 1 :value 42 :topic topic}]
            (mapv #(dissoc % :eid :timestamp) @records)))))
@@ -199,15 +207,20 @@
       (ottla/append! *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn-bytea
                                                           :serialize-value serialize-edn-bytea})
       (is (not= :timed-out (deref r1 max-wait-ms :timed-out)))
-      (is (= :running (consumer/status consumer)))
+      (is (= :running (:state (consumer/status consumer))))
       (ottla/append! *config* topic [{:key 2 :value 42}] {:serialize-key serialize-edn-bytea
                                                           :serialize-value serialize-edn-bytea})
       (is (not= :timed-out (deref ex max-wait-ms :timed-out)))
-      (is (= :running (consumer/status consumer)))
+      (is (= :running (:state (consumer/status consumer))))
       (ottla/append! *config* topic [{:key 3 :value 42}] {:serialize-key serialize-edn-bytea
                                                           :serialize-value serialize-edn-bytea})
       (is (not= :timed-out (deref r3 max-wait-ms :timed-out)))
-      (is (= :running (consumer/status consumer))))))
+      (is (match? {:state :running
+                   :topic topic
+                   :group "default"
+                   :record-count pos-int?
+                   :last-processed-at (m/pred #(instance? java.time.Instant %))}
+                  (consumer/status consumer))))))
 
 (deftest test-consumer-ex-shutdown
   (let [topic "theproblem"
@@ -224,10 +237,13 @@
                                                {:exception-handler ex-handler})]
       (ottla/append! *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn-bytea
                                                           :serialize-value serialize-edn-bytea})
-      (is (= :running (consumer/status consumer)))
+      (is (match? {:state :running
+                   :topic topic
+                   :group "default"}
+                  (consumer/status consumer)))
       (is (not= :timed-out (deref ex max-wait-ms :timed-out)))
       (Thread/sleep 10)
-      (is (not= :running (consumer/status consumer))))))
+      (is (not= :running (:state (consumer/status consumer)))))))
 
 (deftest test-list-subscriptions
   (is (= [] (ottla/list-subscriptions *config*)))

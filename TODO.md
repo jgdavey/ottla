@@ -24,10 +24,6 @@ should make clear that `ensure-subscription :from :latest` before
 backlog. Alternatively, accept another option for `start-consumer`
 that specifies the "creation mode" for when the subscription is new.
 
-### Expose more status from consumer
-`(status consumer)` only returns `:running`/`:shutdown`/`:terminated`. Could surface
-topic/group, record count, last-processed timestamp, etc.
-
 ### Pause/resume a consumer
 Closing and restarting is the only option. A pause/resume mechanism
 would let operators temporarily halt consumption without losing the

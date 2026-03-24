@@ -1,10 +1,10 @@
 (ns ottla.consumer
   (:require [ottla.postgresql :as postgres]
-            [ottla.serde.registry :refer [get-deserializer!]]
             [clojure.tools.logging :as log]
             [pg.core :as pg])
   (:import [java.lang AutoCloseable]
            [java.io Closeable]
+           [java.time Instant]
            [java.util.concurrent
             Executors
             ScheduledExecutorService
@@ -22,14 +22,18 @@
 
 (defprotocol IShutdown
   (graceful-shutdown [_])
-  (shutdown-await [_ await-time-ms])
+  (shutdown-await [_ await-time-ms]))
+
+(defprotocol IConsumerStatus
   (status [_]))
 
 (deftype Consumer [^ExecutorService poller
                    ^ExecutorService worker
                    ^ExecutorService listener
                    ^AutoCloseable conn
-                   await-close-ms]
+                   await-close-ms
+                   selection
+                   stats]
 
   IShutdown
   (graceful-shutdown [_]
@@ -47,11 +51,17 @@
         (.shutdownNow worker)
         (.close conn)
         (.interrupt ^Thread (Thread/currentThread)))))
+
+  IConsumerStatus
   (status [_]
-    (cond
-      (.isTerminated worker) :terminated
-      (.isShutdown worker) :shutdown
-      :else :running))
+    (let [state (cond
+                  (.isTerminated worker) :terminated
+                  (.isShutdown worker) :shutdown
+                  :else :running)]
+      (merge {:state state
+              :topic (:topic selection)
+              :group (:group selection)}
+             @stats)))
 
   Closeable
   (close [this]
@@ -59,7 +69,7 @@
 
   Object
   (toString [this]
-    (format "Consumer[%s]" (str (status this)))))
+    (format "Consumer[%s]" (str (:state (status this))))))
 
 (defn default-exception-handler
   [^Exception e]
@@ -112,12 +122,19 @@
                                                          (ThreadPoolExecutor$DiscardOldestPolicy.))
                                     (Executors/unconfigurableExecutorService))
         ^ExecutorService listener (Executors/newSingleThreadExecutor)
-        consumer (Consumer. poller worker listener conn await-close-ms)
+        stats (atom {:record-count 0
+                     :last-processed-at nil})
+        consumer (Consumer. poller worker listener conn await-close-ms selection stats)
         do-work-fn (fn* do-work-fn [max]
                         (.execute worker
                                   (fn* []
                                        (try
                                          (let [num-handled (fetch-and-handle config (assoc selection :max max) handler)]
+                                           (when (pos? num-handled)
+                                             (swap! stats (fn [s]
+                                                            (-> s
+                                                                (update :record-count + num-handled)
+                                                                (assoc :last-processed-at (Instant/now))))))
                                            (when (= max-records num-handled)
                                              ;; Immediate re-queue (like a poll) since there's likely more
                                              (do-work-fn max)))
