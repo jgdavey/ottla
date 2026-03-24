@@ -2,15 +2,13 @@
 
 ## Ideas
 
+These are some ideas for improvements that may or may not make sense
+or come to fruition. Here just to percolate.
+
 ### Provide a way to do schema migration for subscriptions `updated_at`
 `ensure-schema` creates the `updated_at` column on fresh installs but
 existing installs won't get it. Add `ALTER TABLE ... ADD COLUMN IF NOT
 EXISTS updated_at ...` so upgrades work without manual intervention.
-
-### `reset-offset!` should not touch `updated_at`
-Resetting to offset 0 is an administrative operation, not a consume
-event. Setting `updated_at = now()` here makes the monitoring metrics
-misleading. Only `commit-offset!` should update `updated_at`.
 
 ### Return `:index-key?` in return of `list-topics`
 The `topics` table doesn't store whether a btree key index was

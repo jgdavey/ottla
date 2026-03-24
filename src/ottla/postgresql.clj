@@ -484,7 +484,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
 (defn reset-offset!
   [{:keys [conn schema]} {:keys [topic group]} cursor]
   (honey/execute conn {:update [(keyword schema "subs")]
-                       :set {:cursor cursor :updated_at [:now]}
+                       :set {:cursor cursor :updated_at negative-infinity}
                        :where [:and [:= :topic topic]
                                [:= :group_id group]]}))
 
