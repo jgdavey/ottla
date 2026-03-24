@@ -69,7 +69,8 @@
 
   Object
   (toString [this]
-    (format "Consumer[%s]" (str (:state (status this))))))
+    (let [{:keys [state topic group]} (status this)]
+      (str "#Consumer" (pr-str {:state state :topic topic :group group})))))
 
 (defn default-exception-handler
   [^Exception e]

@@ -39,7 +39,7 @@
       (ottla/append! *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn-bytea
                                                           :serialize-value serialize-edn-bytea})
       (is (= :received (deref p max-wait-ms :timed-out)))
-      (is (= (str consumer) "Consumer[:running]"))
+      (is (= (str consumer) (str "#Consumer" (pr-str {:state :running :topic topic :group "default"}))))
       (is (match? {:state :running
                    :topic topic
                    :group "default"
