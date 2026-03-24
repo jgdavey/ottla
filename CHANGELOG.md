@@ -5,6 +5,8 @@ This change log follows the conventions of [keepachangelog.com](http://keepachan
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-03-24
+
 ### Added
 
 * New function `ottla.core/ensure-subscription`
@@ -13,12 +15,13 @@ This change log follows the conventions of [keepachangelog.com](http://keepachan
 
 ### Changed
 
-* `(status consumer)` now returns a map with `:state`, `:topic`, `:group`, `:record-count`, and `:last-processed-at`
-* `append!` and `append-one!` now return the largest eid inserted
-* `commit-offset!` and `reset-consumer-offset!` now return a boolean indicating whether the subscription was updated
-* `reset-consumer-offset!` now effectively nullifies `updated_at` for more consistent reporting
-* Use `:selections` options instead of `:topics` for `list-subscriptions` and `topic-subscriptions`
-* More description names for consumer threads
+* (BREAKING) `(status consumer)` now returns a map with `:state`, `:topic`, `:group`, `:record-count`, and `:last-processed-at`
+* (BREAKING) `append!` and `append-one!` now return the largest eid inserted
+* (BREAKING) `commit-offset!` and `reset-consumer-offset!` now return a boolean indicating whether the subscription was updated
+* (BREAKING) `reset-consumer-offset!` now effectively nullifies `updated_at` for more consistent reporting
+* (BREAKING) Use `:selections` options instead of `:topics` for `list-subscriptions` and `topic-subscriptions`
+* More descriptive names for consumer threads
+* Update pg2 dependency
 
 ## [0.4.0] - 2026-03-21
 
@@ -112,7 +115,8 @@ This change log follows the conventions of [keepachangelog.com](http://keepachan
 
 Initial public release
 
-[Unreleased]: https://github.com/jgdavey/ottla/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/jgdavey/ottla/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/jgdavey/ottla/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/jgdavey/ottla/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/jgdavey/ottla/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/jgdavey/ottla/compare/v0.3.1...v0.3.2
