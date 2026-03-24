@@ -475,18 +475,20 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
 
 (defn commit-offset!
   [{:keys [conn schema]} {:keys [topic group]} cursor]
-  (honey/execute conn {:update [(keyword schema "subs")]
-                       :set {:cursor cursor :updated_at [:now]}
-                       :where [:and [:= :topic topic]
-                               [:= :group_id group]
-                               [:< :cursor cursor]]}))
+  (= 1 (:updated
+         (honey/execute conn {:update [(keyword schema "subs")]
+                              :set {:cursor cursor :updated_at [:now]}
+                              :where [:and [:= :topic topic]
+                                      [:= :group_id group]
+                                      [:< :cursor cursor]]}))))
 
 (defn reset-offset!
   [{:keys [conn schema]} {:keys [topic group]} cursor]
-  (honey/execute conn {:update [(keyword schema "subs")]
-                       :set {:cursor cursor :updated_at negative-infinity}
-                       :where [:and [:= :topic topic]
-                               [:= :group_id group]]}))
+  (= 1 (:updated
+         (honey/execute conn {:update [(keyword schema "subs")]
+                              :set {:cursor cursor :updated_at negative-infinity}
+                              :where [:and [:= :topic topic]
+                                      [:= :group_id group]]}))))
 
 (defn deserializer-xf
   [config topic {:keys [deserialize-key deserialize-value]}]

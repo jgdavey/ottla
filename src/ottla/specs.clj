@@ -176,12 +176,14 @@
 (s/fdef ottla/commit-offset!
   :args (s/cat :config :ottla/config
                :selection :ottla/selection
-               :record (s/keys :req-un [:ottla.record/eid])))
+               :record (s/keys :req-un [:ottla.record/eid]))
+  :ret boolean?)
 
 (s/fdef ottla/reset-consumer-offset!
   :args (s/cat :config :ottla/config
                :selection :ottla/selection
-               :new-offset nat-int?))
+               :new-offset nat-int?)
+  :ret boolean?)
 
 ;;; Subscriptions
 

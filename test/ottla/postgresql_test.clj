@@ -91,10 +91,10 @@
                       :topic topic
                       :meta {:x "b"}}]
                     (postgres/fetch-records! *config* selection)))
-        (is (= {:updated 1} (postgres/commit-offset! *config* selection (-> received first :eid))))
+        (is (= true (postgres/commit-offset! *config* selection (-> received first :eid))))
         (is (= [] (postgres/fetch-records! *config* selection)))))
     (testing "Can rewind with reset-offset!"
-      (is (= {:updated 1} (postgres/reset-offset! *config* selection 0)))
+      (is (= true (postgres/reset-offset! *config* selection 0)))
       (is (match? [{:key "hi"
                     :value "bye"
                     :topic topic}
