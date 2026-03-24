@@ -13,6 +13,7 @@ This change log follows the conventions of [keepachangelog.com](http://keepachan
 
 ### Changed
 
+* `append!` now returns the largest eid inserted; `append-one!` returns the single inserted eid
 * Use `:selections` options instead of `:topics` for `list-subscriptions` and `topic-subscriptions`
 
 ## [0.4.0] - 2026-03-21

@@ -12,11 +12,6 @@ Resetting to offset 0 is an administrative operation, not a consume
 event. Setting `updated_at = now()` here makes the monitoring metrics
 misleading. Only `commit-offset!` should update `updated_at`.
 
-### `append!` / `append-one!` could return inserted eids
-`insert-records` currently returns `{:inserted N}`. Using `RETURNING
-eid` would let producers track exactly which eids were written, useful
-for correlation and auditing.
-
 ### Return `:index-key?` in return of `list-topics`
 The `topics` table doesn't store whether a btree key index was
 created, so there's no way to retrieve that info later short of

@@ -41,7 +41,7 @@
       (let [{:keys [topic]} (postgres/create-topic *config* topic)]
         (is (= topic "my-topic"))
         (pg/listen conn2 topic)
-        (is (= {:inserted 1}
+        (is (= 1
                (postgres/insert-records *config* topic [{:key (.getBytes "hi" "UTF-8")
                                                          :value (.getBytes "bye" "UTF-8")}])))
         (Thread/sleep 10)
@@ -60,7 +60,7 @@
         selection (postgres/normalize-selection topic)]
     (is (= true (postgres/ensure-subscription *config* selection)))
     (is (= false  (postgres/ensure-subscription *config* selection)))
-    (is (= {:inserted 1}
+    (is (= 1
            (postgres/insert-records *config* topic [{:key "hi"
                                                      :value "bye"
                                                      :meta {:x "b"}}])))
@@ -74,7 +74,7 @@
       ;; Second fetch is empty
       (is (= [] (postgres/fetch-records! *config* selection))))
     (testing "In :manual commit-mode, only commits when told to"
-      (is (= {:inserted 1}
+      (is (= 2
              (postgres/insert-records *config* topic [{:key "yes"
                                                        :value "sir"
                                                        :meta {:x "b"}}])))
@@ -199,8 +199,8 @@
 (deftest ensure-and-create-subscription-test
   (let [topic "events"
         _ (postgres/create-topic *config* topic :key-type :text :value-type :text)
-        _ (postgres/insert-records *config* topic (mapv (fn [k] {:key k :value k})
-                                                        ["a" "b" "c" "d" "e"]))
+        _ (is (= 5 (postgres/insert-records *config* topic (mapv (fn [k] {:key k :value k})
+                                                                 ["a" "b" "c" "d" "e"]))))
         sel (postgres/normalize-selection topic)
         sel-group (postgres/normalize-selection {:topic topic :group "other"})]
 
@@ -333,7 +333,7 @@
         selection-2b (postgres/normalize-selection {:topic topic-2 :group "nice"})]
     (is (= true (postgres/ensure-subscription *config* selection-2a)))
     (is (= true (postgres/ensure-subscription *config* selection-2b)))
-    (is (= {:inserted 1}
+    (is (= 1
            (postgres/insert-records *config* topic-2 [{:key "hi"
                                                        :value "bye"
                                                        :meta {:x "b"}}])))

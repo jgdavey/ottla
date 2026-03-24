@@ -101,14 +101,16 @@
                :topic :ottla.topic/topic
                :records (s/coll-of :ottla/record :min-count 1)
                :opts (s/keys* :opt-un [:ottla.append/serialize-key
-                                       :ottla.append/serialize-value])))
+                                       :ottla.append/serialize-value]))
+  :ret :ottla.record/eid)
 
 (s/fdef ottla/append-one!
   :args (s/cat :config :ottla/config
                :topic :ottla.topic/topic
                :record :ottla/record
                :opts (s/keys* :opt-un [:ottla.append/serialize-key
-                                       :ottla.append/serialize-value])))
+                                       :ottla.append/serialize-value]))
+  :ret :ottla.record/eid)
 
 ;;; Trim
 

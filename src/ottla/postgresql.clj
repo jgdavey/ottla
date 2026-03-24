@@ -397,13 +397,18 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
         conformed (into [] (map conform) records)]
     (pg/with-connection
       [conn (or conn conn-map)]
-      (pg/execute conn
-                  (str "insert into " (sql-entity table-name) "(meta, key, value) "
-                       "select * from unnest($1::jsonb[], $2::" (name key-type) "[],"
-                       " $3::" (name value-type) "[])")
-                  {:params [(mapv :meta conformed)
-                            (mapv :key conformed)
-                            (mapv :value conformed)]}))))
+      (->
+       (pg/execute conn
+                   (str "with inserted as ("
+                        "insert into " (sql-entity table-name) "(meta, key, value) "
+                        "select * from unnest($1::jsonb[], $2::" (name key-type) "[],"
+                        " $3::" (name value-type) "[]) returning eid"
+                        ") select max(eid) eid from inserted")
+                   {:params [(mapv :meta conformed)
+                             (mapv :key conformed)
+                             (mapv :value conformed)]})
+       first
+       :eid))))
 
 (defn ensure-subscription
   "Create a subscription for topic/group if one does not already exist.

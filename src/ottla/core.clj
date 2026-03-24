@@ -266,11 +266,12 @@
     - `:key`   (required, even if `nil`)
     - `:value` (required)
     - `:meta`  (optional) map of metadata
-  "
+
+  Returns the largest eid inserted by the batch."
   [config topic records & {:as opts}]
   (postgres/insert-records config (name topic) records opts))
 
 (defn append-one!
-  "Like append! but for a single record"
+  "Like append! but for a single record. Returns the inserted eid."
   [config topic record & {:as opts}]
   (postgres/insert-records config (name topic) [record] opts))
