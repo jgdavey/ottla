@@ -33,12 +33,12 @@
     <dependency>
       <groupId>com.github.igrishaev</groupId>
       <artifactId>pg2-core</artifactId>
-      <version>0.1.44</version>
+      <version>0.1.47</version>
     </dependency>
     <dependency>
       <groupId>com.github.igrishaev</groupId>
       <artifactId>pg2-honey</artifactId>
-      <version>0.1.44</version>
+      <version>0.1.47</version>
     </dependency>
   </dependencies>
   <build>
