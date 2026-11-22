@@ -164,7 +164,9 @@
     - `opts` option map:
       - `:poll-ms`           (int) how often to fallback to polling
       - `:await-close-ms`    (int) how long to wait when closing consumer
-      - `:listen-ms`         (int) how often to check for new messages (fast)
+      - `:listen-min-ms`     (int) min delay between LISTEN checks, used right after activity (default 2)
+      - `:listen-max-ms`     (int) max delay between LISTEN checks; the delay doubles while idle up to this (default 250)
+      - `:listen-ms`         (int) alias for `:listen-max-ms`
       - `:reconnect-ms`      (int) how long to wait before reconnecting the listener after a disconnect (default 5000)
       - `:exception-handler` (fn [e]) handle raised exceptions
       - `:xform`             (fn) transducer for post-deserialization processing

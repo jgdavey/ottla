@@ -143,6 +143,8 @@
 (s/def :ottla.consumer/poll-ms pos-int?)
 (s/def :ottla.consumer/await-close-ms pos-int?)
 (s/def :ottla.consumer/listen-ms pos-int?)
+(s/def :ottla.consumer/listen-min-ms pos-int?)
+(s/def :ottla.consumer/listen-max-ms pos-int?)
 (s/def :ottla.consumer/reconnect-ms pos-int?)
 (s/def :ottla.consumer/max-records pos-int?)
 (s/def :ottla.consumer/deserialize-key serialize-spec)
@@ -154,6 +156,8 @@
   [:ottla.consumer/poll-ms
    :ottla.consumer/await-close-ms
    :ottla.consumer/listen-ms
+   :ottla.consumer/listen-min-ms
+   :ottla.consumer/listen-max-ms
    :ottla.consumer/reconnect-ms
    :ottla.consumer/max-records
    :ottla.consumer/deserialize-key
