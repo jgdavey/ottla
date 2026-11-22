@@ -5,6 +5,8 @@ This change log follows the conventions of [keepachangelog.com](http://keepachan
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-22
+
 ### Added
 
 * Consumer option `:listen-min-ms` (default 2): delay between LISTEN checks right after a notification
@@ -126,7 +128,8 @@ This change log follows the conventions of [keepachangelog.com](http://keepachan
 
 Initial public release
 
-[Unreleased]: https://github.com/jgdavey/ottla/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/jgdavey/ottla/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/jgdavey/ottla/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/jgdavey/ottla/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/jgdavey/ottla/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/jgdavey/ottla/compare/v0.3.2...v0.3.3
