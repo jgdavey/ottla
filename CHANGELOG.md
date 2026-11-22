@@ -14,6 +14,7 @@ This change log follows the conventions of [keepachangelog.com](http://keepachan
 
 * (BREAKING) Consumer listener now uses adaptive backoff instead of a fixed-interval busy-loop: the delay between LISTEN checks starts at `:listen-min-ms`, doubles while idle up to `:listen-max-ms`, and resets on any notification. Idle consumers wake ~4x/sec instead of ~500x/sec, but the first record after a quiet period may take up to `:listen-max-ms` to be picked up.
 * (BREAKING) `:listen-ms` is now an alias for `:listen-max-ms` (previously the fixed check interval). Use `:listen-min-ms` and `:listen-max-ms` with the same value to keep a fixed interval.
+* Update pg2 dependency to 0.1.52
 
 ## [0.5.0] - 2026-03-24
 
