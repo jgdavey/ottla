@@ -290,7 +290,7 @@ The options arg accepts the following keys:
 - `:listen-max-ms` - how long the listener blocks waiting for a
   notification before re-checking whether the consumer is shutting
   down. Notifications are handled as soon as they arrive and closing the
-  consumer interrupts the wait, so this rarely needs tuning. (default 250)
+  consumer interrupts the wait, so this rarely needs tuning. (default 2000)
 - `:listen-ms` - alias for `:listen-max-ms`
 - `:await-close-ms` - when closing the Consumer, how long to wait for
   all threads to completely finish their work before shutting it down

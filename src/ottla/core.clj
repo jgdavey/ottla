@@ -164,7 +164,7 @@
     - `opts` option map:
       - `:poll-ms`           (int) how often to fallback to polling
       - `:await-close-ms`    (int) how long to wait when closing consumer
-      - `:listen-max-ms`     (int) max time the listener blocks waiting for a notification before re-checking for shutdown (default 250)
+      - `:listen-max-ms`     (int) max time the listener blocks waiting for a notification before re-checking for shutdown (default 2000)
       - `:listen-ms`         (int) alias for `:listen-max-ms`
       - `:reconnect-ms`      (int) how long to wait before reconnecting the listener after a disconnect (default 5000)
       - `:exception-handler` (fn [e]) handle raised exceptions

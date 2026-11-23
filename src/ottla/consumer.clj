@@ -130,7 +130,7 @@
         _ (postgres/ensure-subscription config selection)
         thread-prefix (->thread-prefix selection)
         ;; :listen-ms is an alias for :listen-max-ms
-        listen-max-ms (or listen-max-ms (:listen-ms opts) 250)
+        listen-max-ms (or listen-max-ms (:listen-ms opts) 2000)
         ^ScheduledExecutorService poller (Executors/newSingleThreadScheduledExecutor
                                           (thread-factory (str thread-prefix "-poller")))
         ^ExecutorService worker (-> (ThreadPoolExecutor. 1 1 0 TimeUnit/MILLISECONDS
