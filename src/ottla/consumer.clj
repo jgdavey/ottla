@@ -111,10 +111,9 @@
    {:keys [topic] :as basic-selection}
    handler
    {:keys [poll-ms deserialize-key deserialize-value xform
-           exception-handler await-close-ms listen-min-ms listen-max-ms reconnect-ms max-records]
+           exception-handler await-close-ms listen-max-ms reconnect-ms max-records]
     :or {poll-ms 15000
          await-close-ms 1000
-         listen-min-ms 2
          reconnect-ms 2000
          exception-handler default-exception-handler
          xform identity
@@ -132,8 +131,6 @@
         thread-prefix (->thread-prefix selection)
         ;; :listen-ms is an alias for :listen-max-ms
         listen-max-ms (or listen-max-ms (:listen-ms opts) 250)
-        ;; Never start above the ceiling (e.g. a small :listen-ms means "fixed delay")
-        listen-min-ms (min listen-min-ms listen-max-ms)
         ^ScheduledExecutorService poller (Executors/newSingleThreadScheduledExecutor
                                           (thread-factory (str thread-prefix "-poller")))
         ^ExecutorService worker (-> (ThreadPoolExecutor. 1 1 0 TimeUnit/MILLISECONDS
@@ -179,32 +176,30 @@
                                    (do-work-fn nil)
                                    ;; This is the first run
                                    (deliver listening? true))
-                                 ;; Adaptive backoff: check quickly right after
-                                 ;; activity, doubling the delay while idle up to
-                                 ;; listen-max-ms.
-                                 (loop [delay-ms listen-min-ms]
-                                   (pg/poll-notifications c)
-                                   (let [n (try (let [notifications (pg/drain-notifications c)]
-                                                  (doseq [{:keys [message]} notifications]
+                                 ;; Block until a notification arrives. Shutdown
+                                 ;; interrupts the wait (closing the socket); the
+                                 ;; timeout is a backstop for the shutdown check.
+                                 (loop []
+                                   (pg/await-notifications c listen-max-ms)
+                                   (let [ok? (try (doseq [{:keys [message]} (pg/drain-notifications c)]
                                                     (do-work-fn (try (parse-long message)
                                                                      (catch NumberFormatException _ nil))))
-                                                  (count notifications))
-                                                (catch org.pg.error.PGErrorIO _
-                                                  nil)
-                                                (catch Exception ex
-                                                  (exception-handler ex)
-                                                  nil))]
-                                     (when n
-                                       (let [next-delay (if (pos? n)
-                                                          listen-min-ms
-                                                          (min listen-max-ms (* 2 delay-ms)))]
-                                         (sleep next-delay)
-                                         (recur next-delay)))))
+                                                  true
+                                                  (catch org.pg.error.PGErrorIO _
+                                                    false)
+                                                  (catch Exception ex
+                                                    (exception-handler ex)
+                                                    false))]
+                                     (when (and ok? (not (.isShutdown listener)))
+                                       (recur))))
                                  (finally
                                    (try (pg/unlisten c topic) (catch Exception _)))))
                              (catch InterruptedException _)
                              (catch Exception e
-                               (log/error e "Error in Listener")))
+                               ;; Shutdown interrupts a blocked read, which
+                               ;; surfaces as an IO error; don't log that.
+                               (when-not (.isShutdown listener)
+                                 (log/error e "Error in Listener"))))
                            (when-not (.isShutdown listener)
                              (log/warnf "Listener disconnected, reconnecting in %dms (%d previous attempts)" reconnect-ms reconnects)
                              (try (sleep reconnect-ms)

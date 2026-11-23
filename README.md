@@ -287,11 +287,10 @@ The options arg accepts the following keys:
 - `:poll-ms` - how often to poll the database for new records on the
   topic. This is primarily used as a fallback in case of LISTEN/NOTIFY
   misses. (default 15000)
-- `:listen-min-ms` - minimum delay between checks of the LISTEN connection
-  for notifications, used right after activity. (default 2)
-- `:listen-max-ms` - maximum delay between LISTEN checks. While idle, the
-  delay doubles from `:listen-min-ms` up to this value, so it bounds the
-  latency of the first record after a quiet period. (default 250)
+- `:listen-max-ms` - how long the listener blocks waiting for a
+  notification before re-checking whether the consumer is shutting
+  down. Notifications are handled as soon as they arrive and closing the
+  consumer interrupts the wait, so this rarely needs tuning. (default 250)
 - `:listen-ms` - alias for `:listen-max-ms`
 - `:await-close-ms` - when closing the Consumer, how long to wait for
   all threads to completely finish their work before shutting it down

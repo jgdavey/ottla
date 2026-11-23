@@ -5,6 +5,15 @@ This change log follows the conventions of [keepachangelog.com](http://keepachan
 
 ## [Unreleased]
 
+### Changed
+
+* Consumer listener now blocks on `pg/await-notifications` instead of polling with adaptive backoff, so notifications are handled as soon as they arrive. `:listen-max-ms` (and its alias `:listen-ms`) is now the wait timeout between shutdown checks.
+* Update pg2 dependency to 0.1.53-SNAPSHOT
+
+### Removed
+
+* Consumer option `:listen-min-ms` (ignored if passed)
+
 ## [0.6.0] - 2026-11-22
 
 ### Added
