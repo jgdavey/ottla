@@ -5,6 +5,14 @@ This change log follows the conventions of [keepachangelog.com](http://keepachan
 
 ## [Unreleased]
 
+### Fixed
+
+* Consumers could permanently skip records when producers committed out of eid order (e.g. a transaction holding eid 10 open while another committed eid 11). Appends to a topic are now serialized by a per-topic advisory lock taken in a `BEFORE INSERT` statement trigger, so eid order matches commit order.
+
+### Changed
+
+* Appends to the same topic now block each other until the appending transaction ends. Run `init!` after upgrading to add the trigger to existing topics.
+
 ## [0.6.0] - 2026-11-22
 
 ### Added

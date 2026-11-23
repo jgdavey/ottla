@@ -55,6 +55,28 @@ $$ LANGUAGE 'plpgsql';
 AFTER INSERT ON %s
 FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
 
+(def append-lock-classid
+  "First key of the two-key advisory lock taken by appends. Namespaces
+  ottla's locks away from application advisory locks; the second key is
+  the topic table's oid."
+  30490)
+
+(def serialize-function-template
+  ;; Consumers advance their cursor to the max eid they've seen, so an eid
+  ;; should land committed in strictly increasing order. This trigger is what
+  ;; forces serialized eids
+  "CREATE OR REPLACE FUNCTION %s() RETURNS TRIGGER AS $$
+BEGIN
+    PERFORM pg_advisory_xact_lock(%d, TG_RELID::int);
+    RETURN NULL;
+END;
+$$ LANGUAGE 'plpgsql';
+")
+
+(def serialize-trigger-template "CREATE TRIGGER %s
+BEFORE INSERT ON %s
+FOR EACH STATEMENT EXECUTE FUNCTION %s()")
+
 (def brin-index-template "CREATE INDEX ON %s USING BRIN (timestamp)")
 
 (def btree-key-index-template "CREATE INDEX ON %s USING BTREE (key)")
@@ -62,6 +84,33 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
 (defn trigger-function-name
   [schema]
   (sql-entity (str schema ".notify_subs")))
+
+(defn serialize-function-name
+  [schema]
+  (sql-entity (str schema ".serialize_appends")))
+
+(defn- serialize-trigger-name
+  [table-name]
+  (str table-name "_serialize"))
+
+(defn- create-serialize-trigger!
+  [conn schema table-name]
+  (pg/query conn (format serialize-trigger-template
+                         (sql-entity (serialize-trigger-name table-name))
+                         (sql-entity (keyword schema table-name))
+                         (serialize-function-name schema))))
+
+(defn- add-missing-serialize-triggers!
+  "Upgrade path for topics created before appends were serialized."
+  [conn schema]
+  (doseq [{:keys [table_name]}
+          (pg/execute conn
+                      (str "SELECT t.table_name FROM " (sql-entity (keyword schema "topics")) " t"
+                           " WHERE NOT EXISTS (SELECT 1 FROM pg_trigger g"
+                           " WHERE g.tgrelid = to_regclass(format('%I.%I', $1::text, t.table_name))"
+                           " AND g.tgname = t.table_name || '_serialize')")
+                      {:params [schema]})]
+    (create-serialize-trigger! conn schema table_name)))
 
 (defn normalize-identifier-name
   [topic]
@@ -113,6 +162,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
    (pg/with-transaction [conn conn]
      (pg/execute conn (str "create schema if not exists \"" schema "\""))
      (pg/query conn (format trigger-function-template (trigger-function-name schema)))
+     (pg/query conn (format serialize-function-template (serialize-function-name schema) append-lock-classid))
      (honey/execute conn
                     {:create-table [(keyword schema "topics") :if-not-exists]
                      :with-columns [[:tid :int :primary-key :generated :always :as :identity]
@@ -127,7 +177,8 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
                                     [:group_id :text [:not nil] [:default [:inline default-subscription-group]]]
                                     [:cursor :bigint [:not nil] [:default [:inline 0]]]
                                     [:updated_at :timestamptz [:not nil] [:default negative-infinity]]
-                                    [[:unique] [:composite :topic :group_id]]]}))))
+                                    [[:unique] [:composite :topic :group_id]]]})
+     (add-missing-serialize-triggers! conn schema))))
 
 (defn delete-topic
   [{:keys [conn schema]} topic]
@@ -179,6 +230,7 @@ FOR EACH STATEMENT EXECUTE FUNCTION %s('%s')")
           (when index-key?
             (pg/query conn (format btree-key-index-template qtable-name)))
           (pg/query conn (format trigger-template trigger-name qtable-name trigger-fn-name topic))
+          (create-serialize-trigger! conn schema table)
           (->topic-map row))))))
 
 (defn list-topics

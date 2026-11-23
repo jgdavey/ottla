@@ -39,23 +39,6 @@ dead-letter callback option on `start-consumer`).
 
 ## Correctness
 
-### Concurrent producers can cause consumers to skip records
-`eid` comes from an identity sequence, so values are handed out when a
-row is inserted, while rows become visible in commit order. If txn A
-gets eid 10, txn B gets eid 11, and B commits first, a consumer can
-fetch 11 and commit cursor 11 before A commits. When A commits, eid 10
-is below the cursor and is never delivered (the classic "outbox gap"
-problem). Options:
-- Add an `xid8` column (`pg_current_xact_id()`) and only fetch rows
-  whose xid is below `pg_snapshot_xmin(pg_current_snapshot())`, i.e.
-  rows that can no longer have uncommitted predecessors.
-- Serialize appends per topic with a transaction-level advisory lock
-  (simple, but caps producer throughput).
-- Maintain a "safe high-water mark" that producers advance under lock.
-
-Add a test with concurrent producers (overlapping transactions,
-out-of-order commits) to cover this.
-
 ### `:auto` commit mode is at-most-once, contradicting the README
 In `:auto`, `fetch-records*` commits the offset in its own transaction
 before the handler runs (`consumer/fetch-and-handle`). If the handler

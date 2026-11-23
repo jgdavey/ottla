@@ -229,6 +229,29 @@ To insert a single record, use `append-one!`:
                    {:serialize-key :string :serialize-value :json})
 ```
 
+#### Concurrent producers and ordering
+
+Appends to a topic are serialized: each topic has a trigger that takes
+a transaction-scoped advisory lock before any eid is assigned, and
+the lock is held until the appending transaction commits or rolls
+back. This guarantees that records become visible in eid order, so a
+consumer can never advance past a record that is still being written
+by a slower transaction.
+
+The practical consequences:
+
+- A transaction that appends to a topic blocks other appends to that
+  topic until it finishes. If you append as part of a larger
+  transaction (e.g. as a transactional outbox), append as the *last*
+  step to keep the lock window short.
+- It's possible to deadlock if multiple connections attempt to append
+  to the same 2 topics in a different order. Postgres detects and
+  aborts one of them; append to topics in a consistent order to avoid
+  this.
+
+Topics created by older versions of ottla get the trigger when `init!`
+is run again.
+
 ### Consumers
 
 Consumers asynchronously listen for messages on a topic and run a

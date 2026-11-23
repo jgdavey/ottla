@@ -126,6 +126,53 @@
                   (postgres/fetch-records! *config* selection)))
       (is (= [] (postgres/fetch-records! *config* selection))))))
 
+(deftest concurrent-producers-no-skipped-records-test
+  ;; Producer A inserts and holds its transaction open. Producer B inserts
+  ;; and commits. A consumer fetches, then A commits. The consumer must
+  ;; eventually see both records: B's commit must not let the cursor move
+  ;; past A's (lower) eid.
+  (let [{:keys [topic]} (postgres/create-topic *config* "concurrent"
+                                               :key-type :text
+                                               :value-type :text)
+        selection (postgres/normalize-selection topic)
+        append (fn [conn k]
+                 (postgres/insert-records (assoc *config* :conn conn) topic
+                                          [{:key k :value k}]))]
+    (postgres/ensure-subscription *config* selection)
+    (pg/with-connection [conn-a th/conn-params]
+      (pg/with-connection [conn-b th/conn-params]
+        (pg/begin conn-a)
+        (append conn-a "a")
+        (let [b (future (pg/with-transaction [tx conn-b]
+                          (append tx "b")))
+              _ (Thread/sleep 200)
+              b-blocked? (not (realized? b))
+              first-fetch (postgres/fetch-records! *config* selection)]
+          (pg/commit conn-a)
+          (deref b 5000 ::timeout)
+          (let [second-fetch (postgres/fetch-records! *config* selection)
+                delivered (mapv :key (concat first-fetch second-fetch))]
+            (is b-blocked? "B's append waits for A's transaction to finish")
+            (is (= ["a" "b"] delivered))))))))
+
+(deftest ensure-schema-adds-missing-serialize-triggers-test
+  (let [{:keys [schema conn]} *config*
+        _ (postgres/create-topic *config* "legacy")
+        table (postgres/sql-entity (keyword schema "log__legacy"))
+        trigger-count #(-> (pg/execute conn (str "SELECT count(*) AS n FROM pg_trigger"
+                                                 " WHERE tgrelid = '" table "'::regclass"
+                                                 " AND tgname = 'log__legacy_serialize'"))
+                           first :n)]
+    (is (= 1 (trigger-count)))
+    ;; Simulate a topic created by an older version of ottla
+    (pg/query conn (str "DROP TRIGGER log__legacy_serialize ON " table))
+    (is (= 0 (trigger-count)))
+    (postgres/ensure-schema *config*)
+    (is (= 1 (trigger-count)))
+    (testing "is idempotent"
+      (postgres/ensure-schema *config*)
+      (is (= 1 (trigger-count))))))
+
 (deftest list-subscriptions-test
   (let [topic "events"
         instant? (m/pred #(instance? java.time.Instant %) "Instant")
