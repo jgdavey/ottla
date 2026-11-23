@@ -11,6 +11,7 @@ This change log follows the conventions of [keepachangelog.com](http://keepachan
 
 ### Changed
 
+* README: corrected the delivery guarantees. The default `:auto` commit mode is at-most-once (the offset is committed before the handler runs), not at-least-once as previously documented. Added guidance on choosing between `:auto`, `:tx-wrap`, and `:manual`.
 * Appends to the same topic now block each other until the appending transaction ends. Run `init!` after upgrading to add the trigger to existing topics.
 
 ## [0.6.0] - 2026-11-22

@@ -200,7 +200,7 @@
                     3 (deliver r3 :yes)))
         ex-handler (fn [e] (deliver ex e) :ok)]
     (with-open [consumer (ottla/start-consumer (dissoc *config* :conn)
-                                               {:topic topic}
+                                               {:topic topic :commit-mode :auto}
                                                handler
                                                {:deserialize-key deserialize-bytea-edn
                                                 :exception-handler ex-handler})]
@@ -221,6 +221,35 @@
                    :record-count pos-int?
                    :last-processed-at (m/pred #(instance? java.time.Instant %))}
                   (consumer/status consumer))))))
+
+(deftest test-consumer-tx-wrap-redelivers
+  ;; :tx-wrap: a batch whose handler throws is rolled back and delivered
+  ;; again, rather than skipped.
+  (let [topic "retry_me"
+        _ (ottla/add-topic! *config* topic)
+        attempts (atom 0)
+        delivered (atom [])
+        ex (atom [])
+        p (promise)
+        handler (fn [_ recs]
+                  (when (= 1 (swap! attempts inc))
+                    (throw (ex-info "First attempt fails" {})))
+                  (swap! delivered into (map :key recs))
+                  (deliver p :ok))]
+    (with-open [_consumer (ottla/start-consumer (dissoc *config* :conn)
+                                                {:topic topic :commit-mode :tx-wrap}
+                                                handler
+                                                {:deserialize-key deserialize-bytea-edn
+                                                 :poll-ms 50
+                                                 :exception-handler #(swap! ex conj %)})]
+      (ottla/append! *config* topic [{:key 1 :value 42}] {:serialize-key serialize-edn-bytea
+                                                          :serialize-value serialize-edn-bytea})
+      (is (= :ok (deref p 2000 :timed-out))))
+    (is (= 2 @attempts))
+    (is (= [1] @delivered))
+    (is (= ["First attempt fails"] (mapv ex-message @ex)))
+    (is (match? [{:topic topic :group "default" :lag 0}]
+                (ottla/list-subscriptions *config*)))))
 
 (deftest test-consumer-ex-shutdown
   (let [topic "theproblem"

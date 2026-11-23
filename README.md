@@ -326,8 +326,8 @@ The options arg accepts the following keys:
   Exception object (see below)
 - `:xform` - optional transducer applied to records after deserialization
 - `:commit-mode` - controls when the consumer offset is advanced:
-  - `:auto` (default) — commits after each successful batch fetch, before calling the handler
-  - `:tx-wrap` — wraps the fetch and handler call in a single transaction; commits only if the handler returns without throwing
+  - `:auto` (default) — commits the offset when the batch is fetched, *before* calling the handler; a batch whose handler throws is not redelivered
+  - `:tx-wrap` — fetches the batch, runs the handler, and commits the offset in a single transaction; the offset only advances if the handler returns without throwing
   - `:manual` — never commits automatically; use `commit-offset!` in your handler
 
 Uncaught exceptions thrown either in the handler, any deserializer, or
@@ -346,10 +346,53 @@ work should be handed off to a separate thread pool inside the handler.
 
 #### Delivery guarantees
 
-Ottla provides **at-least-once** delivery. Records will not be skipped,
-but may be delivered more than once if the consumer crashes after fetching
-but before committing. The `:tx-wrap` commit mode minimizes this window by
-committing the offset within the same transaction as the handler.
+The guarantee depends on the commit mode:
+
+- `:auto` (default) — **at-most-once**. The offset is committed when
+  the batch is fetched, before the handler runs. If the handler throws,
+  or the process dies while the handler is running, that batch is not
+  delivered again.
+- `:tx-wrap` — **at-least-once**. The offset is committed in the same
+  transaction as the handler, so if the handler throws (or the process
+  dies mid-batch) the transaction rolls back and the batch is delivered
+  again on the next notification or poll. If the handler's side effects
+  are writes to the same database, made through the connection in the
+  `config` passed to the handler, they commit or roll back together
+  with the offset, giving effectively-once processing.
+- `:manual` — at-least-once for anything you haven't passed to
+  `commit-offset!`.
+
+#### Choosing a commit mode
+
+|                                  | `:auto`                     | `:tx-wrap`                                  |
+|----------------------------------|-----------------------------|---------------------------------------------|
+| Handler throws / process crashes | batch is skipped            | batch is retried                            |
+| Record that always fails         | skipped; group moves on     | blocks the group until fixed or skipped     |
+| Transaction during handler       | none                        | open for the whole handler, holding a row lock on the group's subscription |
+| Same-database writes in handler  | independent of the offset   | atomic with the offset (effectively-once)   |
+| External side effects (HTTP, email, …) | at most once          | may repeat on retry; make them idempotent   |
+
+Use **`:tx-wrap`** when every record must be processed, and especially
+when the handler's work is writes to the same Postgres database
+(projections, read models, moving data between tables). Keep handlers
+short: a long-running handler is a long-running transaction, which
+holds back vacuum and blocks `reset-consumer-offset!` for that group.
+A record that always makes the handler throw is retried on every
+notification or poll, so the exception handler should alert on
+repeated failures; move the offset past a bad record with
+`reset-consumer-offset!`.
+
+Use **`:auto`** when losing a batch is acceptable (cache invalidation,
+metrics, best-effort notifications), or when the handler is slow or
+mostly does external I/O and you don't want to hold a transaction
+open. Since a batch that throws is gone, handle errors per record
+inside the handler (retry, log, or write to a dead-letter topic)
+rather than letting them escape.
+
+Use **`:manual`** when you need control over exactly when the offset
+moves, e.g. committing record by record within a batch, or after
+handing work off to another thread. Note that until you commit, each
+fetch returns the same records again.
 
 #### Replaying records
 

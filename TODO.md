@@ -29,22 +29,18 @@ Closing and restarting is the only option. A pause/resume mechanism
 would let operators temporarily halt consumption without losing the
 connection or restarting threads.
 
-## Deserializer errors crash the whole batch
+## Poison records block or crash the whole batch
 Currently, if a deserializer throws for a single record, the entire
-batch fails and the consumer's exception handler is invoked. Consider
+batch fails and the consumer's exception handler is invoked. Likewise,
+with the `:tx-wrap` commit mode a handler that keeps throwing
+on a record blocks the group, retrying on every notification/poll with
+no backoff or retry limit. Consider
 per-record error handling so that one corrupted record doesn't prevent
 the rest of the batch from being processed (e.g. skip-and-log, or a
 dead-letter callback option on `start-consumer`).
 
 
 ## Correctness
-
-### `:auto` commit mode is at-most-once, contradicting the README
-In `:auto`, `fetch-records*` commits the offset in its own transaction
-before the handler runs (`consumer/fetch-and-handle`). If the handler
-throws, the batch is lost. The README's "Delivery guarantees" section
-says records will not be skipped. Either make `:tx-wrap` the default,
-or document `:auto` as at-most-once with respect to handler failures.
 
 ### Multiple consumers in the same group behave inconsistently
 There are no partitions, so a group is really one logical cursor.
